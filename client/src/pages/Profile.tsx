@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/Button';
 
 interface User {
   username: string;
@@ -31,15 +32,23 @@ const Profile: React.FC = () => {
       });
   }, [navigate]);
 
-  if (error) return <div>{error}</div>;
-  if (!user) return <div>Loading...</div>;
+  if (error) return <div className="flex min-h-screen items-center justify-center text-red-500">{error}</div>;
+  if (!user) return <div className="flex min-h-screen items-center justify-center">Loading...</div>;
 
   return (
-    <div>
-      <h2>Profile</h2>
-      <p><strong>Username:</strong> {user.username}</p>
-      <p><strong>Email:</strong> {user.email}</p>
-      <button onClick={() => { localStorage.removeItem('token'); navigate('/login'); }}>Logout</button>
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="w-full max-w-md rounded-lg border bg-card p-8 shadow-lg">
+        <h2 className="mb-6 text-2xl font-bold text-center">Profile</h2>
+        <div className="space-y-4">
+          <div>
+            <span className="font-semibold">Username:</span> {user.username}
+          </div>
+          <div>
+            <span className="font-semibold">Email:</span> {user.email}
+          </div>
+          <Button className="w-full mt-6" onClick={() => { localStorage.removeItem('token'); navigate('/login'); }}>Logout</Button>
+        </div>
+      </div>
     </div>
   );
 };
