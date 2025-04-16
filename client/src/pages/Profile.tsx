@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
 interface User {
@@ -18,7 +18,7 @@ const Profile: React.FC = () => {
       navigate('/login');
       return;
     }
-    axios.get('http://localhost:5000/api/users/profile', {
+    api.get('/api/users/profile', {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(res => setUser(res.data))
