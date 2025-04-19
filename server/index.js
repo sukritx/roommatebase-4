@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 
 const userRoutes = require('./routes/user');
+const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
@@ -11,6 +12,9 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/api/users', userRoutes);
+
+// Centralized error handler (should be after all routes)
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
