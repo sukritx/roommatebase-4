@@ -16,6 +16,7 @@ const RoomSchema = new mongoose.Schema({
   },
   size: { type: Number, required: true }, // Size in square meters
   rooms: { type: Number, required: true }, // Number of rooms
+  bathrooms: { type: Number, required: true }, // Number of bathrooms
   floor: { type: Number }, // Floor number
   furnished: { type: Boolean, default: false },
   shareable: { type: Boolean, default: false },
@@ -52,9 +53,8 @@ const RoomSchema = new mongoose.Schema({
   energyRating: { type: String, default: "-" }, // Can be A, B, C, D, etc.
   
   // Applications based on room type
-  roomType: { type: String, enum: ["Single-Tenant", "Multi-Tenant"], required: true },
   singleTenantApplications: [{ type: Schema.Types.ObjectId, ref: "User", default: [] }],
-  partyApplications: [{ type: Schema.Types.ObjectId, ref: "Party", default: [] }],
+  partyApplications: [{ type: Schema.Types.ObjectId, ref: "Party", default: [] }], // If shareable is true
   status: { type: String, enum: ["Available", "Pending", "Taken"], default: "Available" },
   lastUpdated: { type: Date, default: Date.now },
   
