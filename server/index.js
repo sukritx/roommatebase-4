@@ -12,6 +12,11 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/api/users', userRoutes);
+app.use('/api/rooms', roomRoutes);
+app.use('/api/party', partyRoutes);
+app.use('/api/message', messageRoutes);
+app.use('/api/payment', paymentRoutes);
+
 
 // Centralized error handler (should be after all routes)
 app.use(errorHandler);
