@@ -4,6 +4,10 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 
 const userRoutes = require('./routes/userRouter');
+const roomRoutes = require('./routes/roomRouter');
+const partyRoutes = require('./routes/partyRouter');
+const messageRoutes = require('./routes/messageRouter');
+const paymentRoutes = require('./routes/paymentRouter');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
