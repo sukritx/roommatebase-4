@@ -27,7 +27,9 @@ const UserSchema = new mongoose.Schema({
     instagram: { type: String, default: "" },
     twitter: { type: String, default: "" },
     whatsapp: { type: String, default: "" },
-  }]
+  }],
+  isPaid: { type: Boolean, default: false },
+  paidUntil: { type: Date, default: null },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);
