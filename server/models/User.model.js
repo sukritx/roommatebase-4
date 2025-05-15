@@ -31,6 +31,7 @@ const UserSchema = new mongoose.Schema({
   }],
   isPaid: { type: Boolean, default: false },
   paidUntil: { type: Date, default: null },
+  freeQuotaUsed: { type: Number, default: 0 },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);
