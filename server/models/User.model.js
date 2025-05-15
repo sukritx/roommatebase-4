@@ -27,6 +27,7 @@ const UserSchema = new mongoose.Schema({
     instagram: { type: String, default: "" },
     twitter: { type: String, default: "" },
     whatsapp: { type: String, default: "" },
+    phoneNumber: { type: String, default: "" }, // For contact as a landlord
   }],
   isPaid: { type: Boolean, default: false },
   paidUntil: { type: Date, default: null },
