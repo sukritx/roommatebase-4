@@ -14,6 +14,7 @@ import Home from "./components/Home";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ProfileWithLogout from "./components/ProfileWithLogout";
+import Listings from "./components/Listings";
 
 // Main App Component: Sets up routes
 function App() {
@@ -24,6 +25,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/signin" element={<Signin />} />
+        <Route path="/listings" element={<Listings />} />
         <Route
           path="/profile"
           element={

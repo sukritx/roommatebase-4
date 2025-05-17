@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
-import api from "@/lib/axios";
+import api from "@/lib/api";
 
 const Signin = () => {
   const [form, setForm] = useState({ email: "", password: "" });

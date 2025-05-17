@@ -97,8 +97,28 @@ exports.getRoomsFiltered = async (req, res, next) => {
     if (washingMachine === 'true') filter.washingMachine = true;
     if (dryer === 'true') filter.dryer = true;
 
+    // Add location filter if present
+    if (req.query.location) {
+      filter.location = { $regex: new RegExp(req.query.location, 'i') };
+    }
     const rooms = await Room.find(filter).sort({ createdAt: -1 });
     res.json(rooms);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Returns city/area suggestions based on a partial query
+exports.suggestLocations = async (req, res, next) => {
+  try {
+    const { query } = req.query;
+    if (!query) return res.json([]);
+    const suggestions = await Room.aggregate([
+      { $match: { location: { $regex: query, $options: "i" } } },
+      { $group: { _id: "$location" } },
+      { $limit: 10 }
+    ]);
+    res.json(suggestions.map(s => s._id));
   } catch (err) {
     next(err);
   }
