@@ -11,6 +11,7 @@ import Profile from "./pages/Profile";
 
 // Components moved to src/components/
 import Home from "./components/Home";
+import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ProfileWithLogout from "./components/ProfileWithLogout";
 
@@ -18,6 +19,7 @@ import ProfileWithLogout from "./components/ProfileWithLogout";
 function App() {
   return (
     <Router>
+      <Navbar />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/signup" element={<Signup />} />
