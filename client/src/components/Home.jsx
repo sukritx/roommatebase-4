@@ -45,12 +45,12 @@ const Home = () => {
     navigate(`/listings?location=${encodeURIComponent(suggestion)}`);
   };
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen gap-4">
-      <h1 className="text-3xl font-bold text-black mb-6">Best place to find your next roommate</h1>
-      <form onSubmit={handleSearch} className="w-full max-w-md relative">
+    <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-2 sm:px-4 bg-gray-50">
+      <h1 className="text-2xl sm:text-3xl font-bold text-black mb-6 text-center">Best place to find your next roommate</h1>
+      <form onSubmit={handleSearch} className="w-full max-w-md relative mx-auto">
         <input
           type="text"
-          className="w-full p-3 rounded shadow focus:outline-none"
+          className="w-full p-3 rounded shadow focus:outline-none text-base sm:text-lg"
           placeholder="Search location, e.g. a city or area"
           value={search}
           onChange={handleInputChange}

@@ -35,6 +35,7 @@ const currencySymbols = { USD: "$", EUR: "€", NOK: "kr", THB: "฿", GBP: "£"
 const Listings = () => {
   // State for image carousel index per room card
   const [imgIndexes, setImgIndexes] = React.useState({});
+  const [showFilters, setShowFilters] = React.useState(false);
   const query = useQuery();
   const [rooms, setRooms] = useState([]);
   const [filters, setFilters] = useState(filterDefaults);
@@ -95,9 +96,41 @@ const Listings = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
+      {/* Mobile: Show Filters Button */}
+      <button
+        className="block md:hidden bg-orange-500 text-white font-bold py-2 px-4 rounded shadow m-4 w-fit self-start"
+        style={{ display: showFilters ? 'none' : 'block' }}
+        onClick={() => setShowFilters(true)}
+        aria-controls="sidebar-filters"
+        aria-expanded={showFilters}
+      >
+        Show Filters
+      </button>
+      {/* Overlay for mobile sidebar */}
+      {showFilters && (
+        <div
+          className="fixed inset-0 bg-black/40 z-20 md:hidden animate-fadein"
+          onClick={() => setShowFilters(false)}
+          aria-hidden="true"
+        />
+      )}
       {/* Sidebar Filters */}
-      <aside className="w-64 p-4 bg-white border-r">
+      <aside
+        id="sidebar-filters"
+        aria-modal={showFilters}
+        aria-hidden={!showFilters && window.innerWidth < 768}
+        className={`z-30 fixed md:static top-0 left-0 h-full md:h-auto w-4/5 max-w-xs md:w-64 p-4 bg-white border-b md:border-b-0 md:border-r flex-shrink-0 transition-transform duration-200 ${showFilters ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 overflow-y-auto md:overflow-visible`}
+        style={{ boxShadow: showFilters ? '0 0 0 9999px rgba(0,0,0,0.2)' : undefined, maxHeight: '100vh' }}
+      >
+        {/* Close button on mobile */}
+        <button
+          className="md:hidden absolute top-4 right-4 text-gray-500 hover:text-black text-2xl font-bold"
+          onClick={() => setShowFilters(false)}
+          aria-label="Close filters"
+        >
+          &times;
+        </button>
         <form onSubmit={handleFilterSubmit} className="flex flex-col gap-2 text-sm">
           {/* Category */}
           <div className="mb-2">
@@ -182,12 +215,17 @@ const Listings = () => {
         </form>
       </aside>
       {/* Listings */}
-      <main className="flex-1 p-6">
+      <main
+        className="flex-1 p-4 sm:p-6"
+        onClick={() => {
+          if (showFilters && window.innerWidth < 768) setShowFilters(false);
+        }}
+      >
         <h2 className="text-2xl font-bold mb-4">{rooms.length} rooms founded</h2>
         {loading ? (
           <div>Loading...</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
             {/* Carousel image index state for each room */}
             {rooms.map((room, idx) => {
               // Use a unique key for each card
