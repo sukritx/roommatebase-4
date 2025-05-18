@@ -30,6 +30,8 @@ const filterDefaults = {
   dryer: false,
 };
 
+const currencySymbols = { USD: "$", EUR: "€", NOK: "kr", THB: "฿", GBP: "£", JPY: "¥" };
+
 const Listings = () => {
   // State for image carousel index per room card
   const [imgIndexes, setImgIndexes] = React.useState({});
@@ -246,7 +248,7 @@ const Listings = () => {
                   </div>
                   <div className="font-semibold mb-1">{`${room.rooms} rm. ${room.category} of ${room.size} m²`}</div>
                   <div className="text-gray-600 text-sm mb-2">{room.location}</div>
-                  <div className="text-orange-600 font-bold text-lg mb-2">{room.price ? `${room.price} $.` : ""}</div>
+                  <div className="text-orange-600 font-bold text-lg mb-2">{room.price ? `${room.price} ${(currencySymbols[room.currency] || room.currency)}` : ""}</div>
                   <div className="text-xs text-gray-400">{room.availableDate ? `Available from ${new Date(room.availableDate).toLocaleDateString()}` : null}</div>
                 </div>
               );

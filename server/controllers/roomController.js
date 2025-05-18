@@ -10,7 +10,10 @@ exports.createRoom = async (req, res, next) => {
     }
 
     // Prepare room data, enforce owner
-    const roomData = { ...req.body, owner: ownerId };
+    if (!req.body.currency) {
+      return res.status(400).json({ error: "Currency is required." });
+    }
+    const roomData = { ...req.body, owner: ownerId, currency: req.body.currency };
     const room = new Room(roomData);
     await room.save();
 

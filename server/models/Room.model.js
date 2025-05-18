@@ -38,6 +38,12 @@ const RoomSchema = new mongoose.Schema({
   deposit: { type: Number, required: true },
   prepaidRent: { type: Number, required: true },
   moveInPrice: { type: Number, required: true }, // Calculated (price + deposit + prepaidRent)
+  currency: {
+    type: String,
+    enum: ["USD", "EUR", "NOK", "THB", "GBP", "JPY", /* ...add more as needed */],
+    required: true,
+    default: "USD"
+  },
   
   // Lifestyle & Facilities
   petsAllowed: { type: Boolean, default: false },
