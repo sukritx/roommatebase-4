@@ -131,7 +131,7 @@ const Listings = () => {
         id="sidebar-filters"
         aria-modal={showFilters}
         aria-hidden={!showFilters && window.innerWidth < 768}
-        className={`z-30 fixed md:static top-0 left-0 h-full md:h-auto w-4/5 max-w-xs md:w-80 p-6 bg-white border-b md:border-b-0 md:border-r flex-shrink-0 transition-transform duration-200 shadow-2xl md:shadow-xl md:rounded-xl md:mt-8 md:ml-6 ${showFilters ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 overflow-y-auto md:overflow-visible`}
+        className={`z-30 fixed md:static top-0 left-0 h-full md:h-auto w-4/5 max-w-xs md:w-80 p-6 bg-neutral-50 border-b md:border-b-0 md:border-r flex-shrink-0 transition-transform duration-200 shadow-lg md:shadow-xl md:rounded-xl md:mt-8 md:ml-6 ${showFilters ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 overflow-y-auto md:overflow-visible`}
         style={{ boxShadow: showFilters ? '0 0 0 9999px rgba(0,0,0,0.2)' : undefined, maxHeight: '100vh' }}
       >
         {/* Sidebar Header */}
@@ -244,7 +244,16 @@ const Listings = () => {
         {loading ? (
           <div>Loading...</div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+          <div
+            className={
+              `grid gap-8 justify-center mx-auto ` +
+              (rooms.length === 1
+                ? 'grid-cols-1 max-w-md'
+                : rooms.length === 2
+                  ? 'grid-cols-1 sm:grid-cols-2 max-w-2xl'
+                  : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 max-w-6xl')
+            }
+          >
             {/* Carousel image index state for each room */}
             {rooms.map((room, idx) => {
               // Use a unique key for each card
@@ -270,14 +279,14 @@ const Listings = () => {
                 }));
               };
               return (
-                <div key={key} className="bg-white rounded shadow p-4 flex flex-col">
-                  <div className="relative h-40 bg-gray-200 mb-2 rounded overflow-hidden flex items-center justify-center">
+                <div key={key} className={`bg-white rounded-xl shadow-lg p-4 flex flex-col mx-auto transition-all duration-200 ${rooms.length === 1 ? 'w-full md:w-[420px] scale-105' : 'w-full md:w-[340px]' }`}>
+                  <div className="relative aspect-[4/3] w-full bg-gray-200 mb-3 rounded-lg overflow-hidden flex items-center justify-center">
                     {hasImages ? (
                       <>
                         <img
                           src={room.images[imgIdx]}
                           alt={room.title || "Room image"}
-                          className="object-cover w-full h-full"
+                          className="object-cover w-full h-full rounded-lg"
                         />
                         {totalImages > 1 && (
                           <>
@@ -300,18 +309,23 @@ const Listings = () => {
                         <div className="absolute right-2 bottom-2 bg-black/60 text-white text-xs rounded px-2 py-1">{imgIdx + 1}/{totalImages}</div>
                       </>
                     ) : (
-                      <span className="text-gray-400">No image</span>
+                      <div className="text-gray-500 text-lg">No images available</div>
                     )}
                   </div>
-                  <div className="font-semibold mb-1">{`${room.rooms} rm. ${room.category} of ${room.size} m²`}</div>
-                  <div className="text-gray-600 text-sm mb-2">{room.location}</div>
-                  <div className="text-orange-600 font-bold text-lg mb-2">{room.price ? `${room.price} ${(currencySymbols[room.currency] || room.currency)}` : ""}</div>
-                  <div className="text-xs text-gray-400">{room.availableDate ? `Available from ${new Date(room.availableDate).toLocaleDateString()}` : null}</div>
+                  <div className="font-bold text-lg md:text-xl mb-1 leading-snug">{`${room.rooms} rm. ${room.category} of ${room.size} m²`}</div>
+                  <div className="text-gray-400 text-xs mb-1">{room.location}</div>
+                  <div className="text-orange-600 font-extrabold text-xl md:text-2xl mb-2">{room.price ? `${room.price} ${(currencySymbols[room.currency] || room.currency)}` : ""}</div>
+                  <div className="text-xs text-gray-300 mb-1">{room.availableDate ? `Available from ${new Date(room.availableDate).toLocaleDateString()}` : null}</div>
                 </div>
               );
             })}
           </div>
         )}
+        {/* Pagination Placeholder */}
+        <div className="flex justify-center mt-10">
+          {/* Replace this with real pagination controls if needed */}
+          <nav className="rounded-md shadow px-4 py-2 bg-white text-gray-400 text-sm">Pagination coming soon…</nav>
+        </div>
       </main>
     </div>
   );
