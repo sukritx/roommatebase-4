@@ -95,18 +95,29 @@ const Listings = () => {
     fetchRooms();
   };
 
+  // Track window width for runtime check
+  const [windowWidth, setWindowWidth] = React.useState(window.innerWidth);
+  React.useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50">
-      {/* Mobile: Show Filters Button */}
-      <button
-        className="block md:hidden bg-orange-500 text-white font-bold py-2 px-4 rounded shadow m-4 w-fit self-start"
-        style={{ display: showFilters ? 'none' : 'block' }}
-        onClick={() => setShowFilters(true)}
-        aria-controls="sidebar-filters"
-        aria-expanded={showFilters}
-      >
-        Show Filters
-      </button>
+      {/* Show Filters Button: Only visible on mobile/tablet (hidden on md and larger screens) */}
+      {windowWidth < 768 && (
+        <button
+          className="md:hidden bg-gradient-to-r from-orange-500 to-orange-400 text-white font-bold py-2 px-5 rounded-full shadow-lg m-4 w-fit self-start flex items-center gap-2 hover:scale-105 transition-transform duration-150"
+          style={{ display: showFilters ? 'none' : 'flex' }}
+          onClick={() => setShowFilters(true)}
+          aria-controls="sidebar-filters"
+          aria-expanded={showFilters}
+        >
+          <svg xmlns='http://www.w3.org/2000/svg' className='h-5 w-5' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707l-6.414 6.414A1 1 0 0013 13.586V19a1 1 0 01-1.447.894l-4-2A1 1 0 017 17v-3.414a1 1 0 00-.293-.707L3.293 6.707A1 1 0 013 6V4z' /></svg>
+          Show Filters
+        </button>
+      )}
       {/* Overlay for mobile sidebar */}
       {showFilters && (
         <div
@@ -120,17 +131,25 @@ const Listings = () => {
         id="sidebar-filters"
         aria-modal={showFilters}
         aria-hidden={!showFilters && window.innerWidth < 768}
-        className={`z-30 fixed md:static top-0 left-0 h-full md:h-auto w-4/5 max-w-xs md:w-64 p-4 bg-white border-b md:border-b-0 md:border-r flex-shrink-0 transition-transform duration-200 ${showFilters ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 overflow-y-auto md:overflow-visible`}
+        className={`z-30 fixed md:static top-0 left-0 h-full md:h-auto w-4/5 max-w-xs md:w-80 p-6 bg-white border-b md:border-b-0 md:border-r flex-shrink-0 transition-transform duration-200 shadow-2xl md:shadow-xl md:rounded-xl md:mt-8 md:ml-6 ${showFilters ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 overflow-y-auto md:overflow-visible`}
         style={{ boxShadow: showFilters ? '0 0 0 9999px rgba(0,0,0,0.2)' : undefined, maxHeight: '100vh' }}
       >
-        {/* Close button on mobile */}
-        <button
-          className="md:hidden absolute top-4 right-4 text-gray-500 hover:text-black text-2xl font-bold"
-          onClick={() => setShowFilters(false)}
-          aria-label="Close filters"
-        >
-          &times;
-        </button>
+        {/* Sidebar Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <svg xmlns='http://www.w3.org/2000/svg' className='h-6 w-6 text-orange-500' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707l-6.414 6.414A1 1 0 0013 13.586V19a1 1 0 01-1.447.894l-4-2A1 1 0 017 17v-3.414a1 1 0 00-.293-.707L3.293 6.707A1 1 0 013 6V4z' /></svg>
+            <span className="text-xl font-semibold text-gray-700">Filters</span>
+          </div>
+          {/* Close button on mobile */}
+          <button
+            className="md:hidden flex items-center justify-center text-gray-500 hover:text-orange-500 bg-gray-100 rounded-full w-9 h-9 text-2xl font-bold shadow transition-colors duration-150"
+            onClick={() => setShowFilters(false)}
+            aria-label="Close filters"
+          >
+            <span className="sr-only">Close filters</span>
+            <svg xmlns='http://www.w3.org/2000/svg' className='h-6 w-6' fill='none' viewBox='0 0 24 24' stroke='currentColor'><path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M6 18L18 6M6 6l12 12' /></svg>
+          </button>
+        </div>
         <form onSubmit={handleFilterSubmit} className="flex flex-col gap-2 text-sm">
           {/* Category */}
           <div className="mb-2">
