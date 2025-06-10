@@ -126,3 +126,44 @@ exports.suggestLocations = async (req, res, next) => {
     next(err);
   }
 };
+
+// Get room by ID
+exports.getRoomById = async (req, res, next) => {
+  try {
+    const room = await Room.findById(req.params.id)
+      .populate({
+        path: 'owner',
+        select: 'firstName lastName profilePicture email updatedAt',
+        transform: (doc) => {
+          if (!doc) return null;
+          return {
+            _id: doc._id,
+            name: `${doc.firstName || ''} ${doc.lastName || ''}`.trim() || 'Anonymous',
+            email: doc.email,
+            profilePicture: doc.profilePicture || '',
+            lastActive: doc.updatedAt
+          };
+        }
+      });
+      
+    if (!room) return res.status(404).json({ message: 'Room not found' });
+    
+    // Convert to plain object to modify the response
+    const roomObj = room.toObject();
+    
+    // If owner was populated, extract it for cleaner response
+    if (roomObj.owner) {
+      roomObj.owner = {
+        _id: roomObj.owner._id,
+        name: roomObj.owner.name,
+        email: roomObj.owner.email,
+        profilePicture: roomObj.owner.profilePicture,
+        lastActive: roomObj.owner.lastActive
+      };
+    }
+    
+    res.json(roomObj);
+  } catch (err) {
+    next(err);
+  }
+};
