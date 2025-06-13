@@ -1,12 +1,32 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const { getRooms, createRoom, getRoomsFiltered, suggestLocations, getRoomById } = require('../controllers/roomController');
+const { 
+  getRooms, 
+  createRoom, 
+  getRoomsFiltered, 
+  suggestLocations, 
+  getRoomById,
+  favoriteRoom,
+  unfavoriteRoom,
+  getFavoriteRooms,
+  checkFavoriteStatus,
+  getRoomLink
+} = require('../controllers/roomController');
 
+// Public routes
 router.get('/:id', getRoomById);
 router.get('/', getRooms); // Get rooms by location (city/area required)
 router.get('/suggest-locations', suggestLocations); // Get city/area suggestions
 router.get('/filtered', getRoomsFiltered); // Get filtered rooms for feed
-router.post('/create', auth, createRoom);
+
+// Protected routes (require authentication)
+router.use(auth);
+router.post('/create', createRoom);
+router.post('/:roomId/favorite', favoriteRoom);
+router.delete('/:roomId/favorite', unfavoriteRoom);
+router.get('/favorites/list', getFavoriteRooms);
+router.get('/:roomId/status', checkFavoriteStatus);
+router.get('/:id/share-link', getRoomLink);
 
 module.exports = router;

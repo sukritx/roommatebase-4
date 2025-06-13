@@ -167,3 +167,111 @@ exports.getRoomById = async (req, res, next) => {
     next(err);
   }
 };
+
+// Add room to user's favorites
+exports.favoriteRoom = async (req, res, next) => {
+  try {
+    const { roomId } = req.params;
+    const userId = req.user._id;
+
+    // Check if room exists
+    const room = await Room.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+
+    // Add to user's favorites if not already favorited
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $addToSet: { favoriteRooms: roomId } },
+      { new: true }
+    );
+
+    res.json({ 
+      success: true, 
+      message: 'Room added to favorites',
+      favorites: user.favoriteRooms 
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Remove room from user's favorites
+exports.unfavoriteRoom = async (req, res, next) => {
+  try {
+    const { roomId } = req.params;
+    const userId = req.user._id;
+
+    // Remove from user's favorites
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $pull: { favoriteRooms: roomId } },
+      { new: true }
+    );
+
+    res.json({ 
+      success: true, 
+      message: 'Room removed from favorites',
+      favorites: user.favoriteRooms 
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Get user's favorite rooms
+exports.getFavoriteRooms = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    
+    // Find user with populated favorite rooms
+    const user = await User.findById(userId).populate({
+      path: 'favoriteRooms',
+      select: 'title price location images size rooms bathrooms category',
+      options: { sort: { createdAt: -1 } }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json(user.favoriteRooms);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Check if a room is favorited by user
+exports.checkFavoriteStatus = async (req, res, next) => {
+  try {
+    const { roomId } = req.params;
+    const userId = req.user._id;
+    
+    const user = await User.findOne({
+      _id: userId,
+      favoriteRooms: roomId
+    });
+    
+    res.json({ isFavorited: !!user });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Generate a shareable link for a room
+exports.getRoomLink = (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const shareableLink = `${baseUrl}/rooms/${id}`;
+    
+    res.json({ 
+      success: true, 
+      link: shareableLink,
+      message: 'Shareable link generated successfully'
+    });
+  } catch (err) {
+    next(err);
+  }
+};
