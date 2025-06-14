@@ -85,6 +85,11 @@ const authMiddleware = function(req, res, next) {
   return auth.verifyToken(req, res, next);
 };
 
-// Export both the middleware and the auth object
-module.exports = authMiddleware;
-module.exports.auth = auth;
+// Export all middleware functions
+module.exports = {
+  // Default export (for backward compatibility)
+  ...auth,
+  // Named exports
+  verifyToken: auth.verifyToken,
+  landlordAuth: auth.landlordAuth
+};

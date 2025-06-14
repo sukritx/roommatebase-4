@@ -11,7 +11,7 @@ const {
 } = require('../controllers/partyController');
 
 // Apply auth middleware to all routes
-router.use(auth);
+router.use(auth.verifyToken);
 
 // Create a new party for a room
 router.post('/create', createParty);
@@ -27,8 +27,5 @@ router.get('/:partyId', getPartyById);
 
 // Handle party member application (accept/reject)
 router.post('/:partyId/application', handleApplication);
-
-// Select winning party (room owner only)
-router.post('/select-winner', selectWinningParty);
 
 module.exports = router;

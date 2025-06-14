@@ -242,59 +242,6 @@ exports.handleApplication = async (req, res, next) => {
   }
 };
 
-// Select winning party (for room owner)
-exports.selectWinningParty = async (req, res, next) => {
-  try {
-    const { partyId } = req.body;
-    const userId = req.user._id;
-    
-    const party = await Party.findById(partyId)
-      .populate('room', 'owner')
-      .populate('members', 'email');
-    
-    if (!party) {
-      throw new ErrorHandler(404, 'Party not found');
-    }
-    
-    // Check if user is the room owner
-    if (party.room.owner.toString() !== userId) {
-      throw new ErrorHandler(403, 'Only the room owner can select the winning party');
-    }
-    
-    // Close all other parties for this room
-    await Party.updateMany(
-      { 
-        room: party.room._id, 
-        _id: { $ne: party._id },
-        status: { $in: ['Open', 'Full'] } 
-      },
-      { $set: { status: 'Closed' } }
-    );
-    
-    // Mark this party as the winner
-    party.status = 'Winner';
-    await party.save();
-    
-    // Update room status to indicate it's taken
-    await Room.findByIdAndUpdate(party.room._id, { 
-      status: 'Taken',
-      $push: { selectedParty: party._id }
-    });
-    
-    // Notify all party members
-    // (Implement notification system here)
-    
-    res.json({
-      success: true,
-      message: 'Party selected successfully',
-      party: await party.populate('members', 'firstName lastName email profilePicture')
-    });
-    
-  } catch (err) {
-    next(err);
-  }
-};
-
 // Get party details by ID
 exports.getPartyById = async (req, res, next) => {
   try {

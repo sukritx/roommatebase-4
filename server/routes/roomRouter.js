@@ -21,7 +21,7 @@ router.get('/', getRooms); // Get rooms by location (city/area required)
 router.get('/filtered', getRoomsFiltered); // Get filtered rooms for feed
 
 // Protected routes (require authentication)
-router.use(auth);
+router.use(auth.verifyToken);
 router.post('/:roomId/favorite', favoriteRoom);
 router.delete('/:roomId/favorite', unfavoriteRoom);
 router.get('/favorites/list', getFavoriteRooms);
