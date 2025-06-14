@@ -5,6 +5,7 @@ const cors = require('cors');
 
 const userRoutes = require('./routes/userRouter');
 const roomRoutes = require('./routes/roomRouter');
+const roomOwnerRoutes = require('./routes/roomOwnerRouter');
 const partyRoutes = require('./routes/partyRouter');
 const messageRoutes = require('./routes/messageRouter');
 const paymentRoutes = require('./routes/paymentRouter');
@@ -17,6 +18,7 @@ app.use(express.json());
 
 app.use('/api/users', userRoutes);
 app.use('/api/rooms', roomRoutes);
+app.use('/api/landlord', roomOwnerRoutes);
 app.use('/api/party', partyRoutes);
 app.use('/api/message', messageRoutes);
 app.use('/api/payment', paymentRoutes);
