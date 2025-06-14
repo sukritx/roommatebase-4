@@ -71,6 +71,7 @@ const RoomSchema = new mongoose.Schema({
       phoneNumber: { type: String }
   },
   digitalShowing: { type: Boolean, default: false },
+  viewCount: { type: Number, default: 0 }, // Track number of views
   
   createdAt: { type: Date, default: Date.now }
 });

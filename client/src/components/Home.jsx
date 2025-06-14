@@ -18,14 +18,32 @@ const Home = () => {
   };
 
   const fetchSuggestions = async (val) => {
-    if (!val.trim()) {
+    const trimmedVal = val.trim();
+    if (!trimmedVal) {
       setSuggestions([]);
       return;
     }
+    
+    // Only fetch if query is at least 2 characters
+    if (trimmedVal.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    
     try {
-      const res = await api.get('/rooms/suggest-locations', { params: { query: val } });
-      setSuggestions(res.data);
-    } catch {
+      const res = await api.get('/rooms/suggest-locations', { 
+        params: { query: trimmedVal } 
+      });
+      
+      // Handle the new response format: { success, data: [{ name, value }] }
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        // Map the suggestions to the format expected by the component
+        setSuggestions(res.data.data.map(item => item.name));
+      } else {
+        setSuggestions([]);
+      }
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
       setSuggestions([]);
     }
   };

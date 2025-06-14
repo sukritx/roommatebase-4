@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Room = require('../models/Room.model');
 const User = require('../models/User.model');
 
@@ -115,25 +116,79 @@ exports.getRoomsFiltered = async (req, res, next) => {
 exports.suggestLocations = async (req, res, next) => {
   try {
     const { query } = req.query;
-    if (!query) return res.json([]);
+    
+    // Input validation
+    if (!query || typeof query !== 'string' || query.trim().length < 2) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Query parameter must be at least 2 characters long' 
+      });
+    }
+
+    // Sanitize the query to prevent regex injection
+    const sanitizedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
     const suggestions = await Room.aggregate([
-      { $match: { location: { $regex: query, $options: "i" } } },
-      { $group: { _id: "$location" } },
-      { $limit: 10 }
+      { 
+        $match: { 
+          location: { 
+            $regex: `^${sanitizedQuery}`, // Starts with query (case-insensitive)
+            $options: 'i' 
+          } 
+        } 
+      },
+      { 
+        $group: { 
+          _id: { $toLower: "$location" }, // Case-insensitive grouping
+          location: { $first: "$location" } // Keep original case for display
+        } 
+      },
+      { $sort: { _id: 1 } }, // Sort alphabetically
+      { $limit: 10 },
+      {
+        $project: {
+          _id: 0,
+          name: '$location',
+          value: '$_id'
+        }
+      }
     ]);
-    res.json(suggestions.map(s => s._id));
+
+    res.json({
+      success: true,
+      data: suggestions
+    });
   } catch (err) {
-    next(err);
+    console.error('Error in suggestLocations:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch location suggestions'
+    });
   }
 };
 
-// Get room by ID
+// Get room by ID with detailed information
 exports.getRoomById = async (req, res, next) => {
   try {
-    const room = await Room.findById(req.params.id)
+    const roomId = req.params.id;
+    
+    // Input validation
+    if (!mongoose.Types.ObjectId.isValid(roomId)) {
+      return res.status(400).json({ message: 'Invalid room ID format' });
+    }
+
+    // Increment view count (using findOneAndUpdate for atomic increment)
+    await Room.findOneAndUpdate(
+      { _id: roomId },
+      { $inc: { viewCount: 1 } },
+      { new: false } // We don't need the updated document here
+    );
+
+    // Get room with populated data
+    const room = await Room.findById(roomId)
       .populate({
         path: 'owner',
-        select: 'firstName lastName profilePicture email updatedAt',
+        select: 'firstName lastName profilePicture email updatedAt listedRooms',
         transform: (doc) => {
           if (!doc) return null;
           return {
@@ -141,29 +196,72 @@ exports.getRoomById = async (req, res, next) => {
             name: `${doc.firstName || ''} ${doc.lastName || ''}`.trim() || 'Anonymous',
             email: doc.email,
             profilePicture: doc.profilePicture || '',
-            lastActive: doc.updatedAt
+            lastActive: doc.updatedAt,
+            totalListings: doc.listedRooms?.length || 0
           };
+        }
+      })
+      .populate({
+        path: 'partyApplications',
+        select: 'name members',
+        populate: {
+          path: 'members',
+          select: 'firstName lastName profilePicture'
         }
       });
       
-    if (!room) return res.status(404).json({ message: 'Room not found' });
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
     
     // Convert to plain object to modify the response
     const roomObj = room.toObject();
     
+    // Get 3 other rooms from the same location for recommendations
+    const relatedRooms = await Room.find({
+      _id: { $ne: roomId },
+      location: room.location,
+      status: 'Available'
+    })
+    .limit(3)
+    .select('title price images location size rooms')
+    .lean();
+    
+    // Format the response
+    const response = {
+      ...roomObj,
+      relatedRooms,
+      isFavorite: req.user ? req.user.favoriteRooms?.includes(roomId) : false,
+      metadata: {
+        createdAt: room.createdAt,
+        lastUpdated: room.lastUpdated,
+        viewCount: (room.viewCount || 0) + 1 // Increment by 1 for the current view
+      }
+    };
+    
     // If owner was populated, extract it for cleaner response
-    if (roomObj.owner) {
-      roomObj.owner = {
-        _id: roomObj.owner._id,
-        name: roomObj.owner.name,
-        email: roomObj.owner.email,
-        profilePicture: roomObj.owner.profilePicture,
-        lastActive: roomObj.owner.lastActive
+    if (response.owner) {
+      response.owner = {
+        _id: response.owner._id,
+        name: response.owner.name,
+        email: response.owner.email,
+        profilePicture: response.owner.profilePicture,
+        lastActive: response.owner.lastActive,
+        totalListings: response.owner.totalListings
       };
     }
     
-    res.json(roomObj);
+    // Clean up sensitive or unnecessary data
+    delete response.__v;
+    delete response.singleTenantApplications;
+    delete response.partyApplications;
+    
+    res.json(response);
   } catch (err) {
+    console.error('Error fetching room by ID:', err);
+    if (err.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid room ID format' });
+    }
     next(err);
   }
 };

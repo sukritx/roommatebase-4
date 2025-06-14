@@ -11,13 +11,13 @@ const {
   unfavoriteRoom,
   getFavoriteRooms,
   checkFavoriteStatus,
-  getRoomLink
+  getRoomLink,
 } = require('../controllers/roomController');
 
 // Public routes
+router.get('/suggest-locations', suggestLocations); // Get city/area suggestions
 router.get('/:id', getRoomById);
 router.get('/', getRooms); // Get rooms by location (city/area required)
-router.get('/suggest-locations', suggestLocations); // Get city/area suggestions
 router.get('/filtered', getRoomsFiltered); // Get filtered rooms for feed
 
 // Protected routes (require authentication)
