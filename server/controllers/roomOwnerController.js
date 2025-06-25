@@ -80,3 +80,85 @@ exports.selectWinningParty = async (req, res, next) => {
     next(err);
   }
 };
+
+// Room owner can add user as an existing roommate by username
+// POST /api/room-owner/add-roommate
+exports.addExistingRoommate = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
+  try {
+    const { roomId, username } = req.body;
+    const ownerId = req.user._id;
+
+    if (!roomId || !username) {
+      return res.status(400).json({ message: 'Room ID and username are required' });
+    }
+
+    // 1. Find the room and verify ownership
+    const room = await Room.findById(roomId).session(session);
+    if (!room) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ message: 'Room not found' });
+    }
+
+    if (room.owner.toString() !== ownerId.toString()) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(403).json({ message: 'Only the room owner can add roommates' });
+    }
+
+    // 2. Find the user by username
+    const userToAdd = await User.findOne({ username }).session(session);
+    if (!userToAdd) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // 3. Check if user is already a roommate
+    if (room.existingRoommate.includes(userToAdd._id)) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: 'User is already a roommate in this room' });
+    }
+
+    // 4. Add user to room's existingRoommate array
+    room.existingRoommate.push(userToAdd._id);
+    
+    // 5. Update room status to taken if this is the first roommate
+    if (room.status === 'Available') {
+      room.status = 'Taken';
+    }
+    
+    await room.save({ session });
+    
+    // 6. Add room to user's rooms array
+    userToAdd.rooms.push(room._id);
+    await userToAdd.save({ session });
+    
+    await session.commitTransaction();
+    session.endSession();
+    
+    // Populate the user details for the response
+    await room.populate('existingRoommate', 'username email profilePicture');
+    
+    res.status(200).json({
+      success: true,
+      message: 'Roommate added successfully',
+      room
+    });
+    
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    next(error);
+  }
+}
+
+/*
+DASHBOARD
+*/
+// get all rooms of that landlord
+// get all submitted parties  
