@@ -9,11 +9,24 @@ const RoomSchema = new mongoose.Schema({
   images: [{ type: String }],
   title: { type: String, required: true },
   description: { type: String, required: true },
-  location: { type: String, required: true }, // City name for search (e.g., "Oslo")
-  address: { type: String }, // Exact address (optional)
-  coordinates: { // Enables location-based filtering
-    type: { type: String, enum: ["Point"], default: "Point" },
-    coordinates: { type: [Number], index: "2dsphere" } // [longitude, latitude]
+  streetAddress: { type: String, required: true },
+  buildingName: { type: String },
+  apartmentDetails: { type: String},
+  city: { type: String, required: true },
+  state: { type: String },
+  zipCode: { type: String, required: true },
+  country: { type: String, required: true },
+  coordinates: {
+    type: { type: String, enum: ["Point"], default: "Point", required: true },
+    coordinates: {
+      type: [Number],
+      index: "2dsphere",
+      required: true, // Make coordinates array itself required
+      validate: {
+        validator: function(v) { return Array.isArray(v) && v.length === 2 && typeof v[0] === 'number' && typeof v[1] === 'number'; },
+        message: 'Coordinates must be an array of two numbers [longitude, latitude]'
+      }
+    }
   },
   size: { type: Number, required: true }, // Size in square meters
   rooms: { type: Number, required: true }, // Number of rooms
@@ -38,7 +51,6 @@ const RoomSchema = new mongoose.Schema({
   utilities: { type: Number, default: 0 }, // Additional utility costs
   deposit: { type: Number, required: true },
   prepaidRent: { type: Number, required: true },
-  moveInPrice: { type: Number, required: true }, // Calculated (price + deposit + prepaidRent)
   currency: {
     type: String,
     enum: ["USD", "EUR", "NOK", "THB", "GBP", "JPY", /* ...add more as needed */],
@@ -57,7 +69,11 @@ const RoomSchema = new mongoose.Schema({
   washingMachine: { type: Boolean, default: false },
   electricChargingStation: { type: Boolean, default: false },
   dryer: { type: Boolean, default: false },
-  energyRating: { type: String, default: "-" }, // Can be A, B, C, D, etc.
+  energyRating: {
+    type: String,
+    enum: ["A", "B", "C", "D", "E", "F", "G", "Not Applicable", "-"], // Example values, adjust as needed
+    default: "-"
+  },
   
   // Applications based on room type
   singleTenantApplications: [{ type: Schema.Types.ObjectId, ref: "User", default: [] }],
@@ -77,5 +93,19 @@ const RoomSchema = new mongoose.Schema({
   
   createdAt: { type: Date, default: Date.now }
 });
+
+RoomSchema.index({ city: 1 }); // For city searches
+RoomSchema.index({ zipCode: 1 }); // For zip code searches
+RoomSchema.index({ country: 1 }); // If you offer multi-country search/filtering
+RoomSchema.index({ coordinates: "2dsphere" }); // Already there, good!
+// ... and other indexes like price, category, owner, status, createdAt
+
+RoomSchema.virtual('calculatedMoveInPrice').get(function() {
+  return this.price + this.deposit + this.prepaidRent;
+});
+
+// To include virtuals in JSON/object output
+RoomSchema.set('toJSON', { virtuals: true });
+RoomSchema.set('toObject', { virtuals: true });
 
 module.exports = mongoose.model('Room', RoomSchema);
