@@ -7,7 +7,7 @@ const userRoutes = require('./routes/userRouter');
 const roomRoutes = require('./routes/roomRouter');
 const roomOwnerRoutes = require('./routes/roomOwnerRouter');
 const partyRoutes = require('./routes/partyRouter');
-const messageRoutes = require('./routes/messageRouter');
+const messageRoutes = require('./routes/privateMessageRouter');
 const paymentRoutes = require('./routes/paymentRouter');
 const errorHandler = require('./middleware/errorHandler');
 
