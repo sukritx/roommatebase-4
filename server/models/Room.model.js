@@ -9,9 +9,9 @@ const RoomSchema = new mongoose.Schema({
   images: [{ type: String }],
   title: { type: String, required: true },
   description: { type: String, required: true },
-  streetAddress: { type: String, required: true },
-  buildingName: { type: String },
-  apartmentDetails: { type: String},
+  streetAddress: { type: String, required: true }, // e.g., "123 Main St"
+  buildingName: { type: String }, // e.g., "Park Towers" for apartments, or "The Old Mill House" for a detached house
+  apartmentDetails: { type: String}, // e.g., "Apt 201", "Unit 5B", "Building C, Penthouse"
   city: { type: String, required: true },
   state: { type: String },
   zipCode: { type: String, required: true },
