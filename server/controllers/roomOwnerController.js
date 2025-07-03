@@ -81,8 +81,19 @@ exports.selectWinningParty = async (req, res, next) => {
   }
 };
 
+// get all rooms of that landlord
+exports.getAllRooms = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const rooms = await Room.find({ owner: userId });
+    res.json(rooms);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // Room owner can add user as an existing roommate by username
-// POST /api/room-owner/add-roommate
+// POST /api/landlord/add-roommate
 exports.addExistingRoommate = async (req, res, next) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -160,5 +171,13 @@ exports.addExistingRoommate = async (req, res, next) => {
 /*
 DASHBOARD
 */
-// get all rooms of that landlord
 // get all submitted parties  
+exports.getAllSubmittedParties = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const parties = await Party.find({ owner: userId });
+    res.json(parties);
+  } catch (err) {
+    next(err);
+  }
+};

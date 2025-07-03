@@ -3,12 +3,6 @@ const User = require('../models/User.model');
 const Party = require('../models/Party.model');
 const { ErrorHandler } = require('../middleware/errorHandler');
 
-// Helper function to check if user is room owner
-const isRoomOwner = async (roomId, userId) => {
-  const room = await Room.findById(roomId);
-  return room && room.owner.toString() === userId;
-};
-
 // Join a party for a room
 exports.joinParty = async (req, res, next) => {
   try {
@@ -283,3 +277,6 @@ exports.getPartyById = async (req, res, next) => {
     next(err);
   }
 };
+
+// change status of party to close by landlord
+
