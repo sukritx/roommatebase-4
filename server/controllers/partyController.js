@@ -73,7 +73,18 @@ exports.joinParty = async (req, res, next) => {
 exports.getPartiesByRoom = async (req, res, next) => {
   try {
     const { roomId } = req.params;
-    const userId = req.user?._id;
+    
+    // Check if user is authenticated (required for party info)
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Please login to view parties for this room',
+        requiresAuth: true,
+        feature: 'parties'
+      });
+    }
+    
+    const userId = req.user._id;
     
     // Get room details
     const room = await Room.findById(roomId);
@@ -81,7 +92,15 @@ exports.getPartiesByRoom = async (req, res, next) => {
       throw new ErrorHandler(404, 'Room not found');
     }
     
-    const isOwner = userId && room.owner.toString() === userId;
+    // Check if room is shareable
+    if (!room.shareable) {
+      return res.status(400).json({
+        success: false,
+        message: 'This room is not available for party rentals'
+      });
+    }
+    
+    const isOwner = room.owner.toString() === userId;
     
     // Get all active parties for this room
     const parties = await Party.find({ 
@@ -104,7 +123,7 @@ exports.getPartiesByRoom = async (req, res, next) => {
       room: {
         _id: room._id,
         title: room.title,
-        maxPartyMembers: room.maxPartyMembers || 4 // Default to 4 if not set
+        maxPartyMembers: room.maxPartyMembers || 4
       },
       parties: filteredParties.map(party => ({
         ...party.toObject(),

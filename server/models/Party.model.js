@@ -11,7 +11,7 @@ const PartySchema = new mongoose.Schema({
   maxMembers: { type: Number, required: true },
   status: { 
     type: String, 
-    enum: ["Open", "Full", "Closed"],
+    enum: ["Open", "Full", "Closed", "Winner"],
     default: "Open"
   },
 }, { timestamps: true });

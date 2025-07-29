@@ -78,6 +78,7 @@ const RoomSchema = new mongoose.Schema({
   // Applications based on room type
   singleTenantApplications: [{ type: Schema.Types.ObjectId, ref: "User", default: [] }],
   partyApplications: [{ type: Schema.Types.ObjectId, ref: "Party", default: [] }], // If shareable is true
+  maxPartyMembers: { type: Number },
   existingRoommate: [{ type: Schema.Types.ObjectId, ref: "User", default: [] }],
   status: { type: String, enum: ["Available", "Pending", "Taken"], default: "Available" },
   lastUpdated: { type: Date, default: Date.now },

@@ -23,7 +23,7 @@ const UserSchema = new mongoose.Schema({
   isRoomOwner: { type: Boolean, default: false },
   listedRooms: [{ type: Schema.Types.ObjectId, ref: "Room" }],
   favoriteRooms: [{ type: Schema.Types.ObjectId, ref: "Room" }],
-  joinedParty: { type: Schema.Types.ObjectId, ref: "Party" },
+  joinedParties: { type: Schema.Types.ObjectId, ref: "Party" },
   socialMedia: [{
     facebook: { type: String, default: "" },
     instagram: { type: String, default: "" },
@@ -34,6 +34,7 @@ const UserSchema = new mongoose.Schema({
   isPaid: { type: Boolean, default: false },
   paidUntil: { type: Date, default: null },
   freeQuotaUsed: { type: Number, default: 0 },
+  rooms: [{ type: Schema.Types.ObjectId, ref: "Room" }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);

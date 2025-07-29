@@ -152,18 +152,18 @@ exports.getRoomById = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid room ID format' });
     }
 
-    // Increment view count (using findOneAndUpdate for atomic increment)
+    // Increment view count
     await Room.findOneAndUpdate(
       { _id: roomId },
       { $inc: { viewCount: 1 } },
-      { new: false } // We don't need the updated document here
+      { new: false }
     );
 
     // Get room with populated data
     const room = await Room.findById(roomId)
       .populate({
         path: 'owner',
-        select: 'firstName lastName profilePicture email updatedAt listedRooms',
+        select: 'firstName lastName profilePicture email updatedAt listedRooms userType',
         transform: (doc) => {
           if (!doc) return null;
           return {
@@ -172,16 +172,9 @@ exports.getRoomById = async (req, res, next) => {
             email: doc.email,
             profilePicture: doc.profilePicture || '',
             lastActive: doc.updatedAt,
-            totalListings: doc.listedRooms?.length || 0
+            totalListings: doc.listedRooms?.length || 0,
+            userType: doc.userType
           };
-        }
-      })
-      .populate({
-        path: 'partyApplications',
-        select: 'name members',
-        populate: {
-          path: 'members',
-          select: 'firstName lastName profilePicture'
         }
       });
       
@@ -192,41 +185,59 @@ exports.getRoomById = async (req, res, next) => {
     // Convert to plain object to modify the response
     const roomObj = room.toObject();
     
-    // Get 3 other rooms from the same location for recommendations
+    // Get related rooms
     const relatedRooms = await Room.find({
       _id: { $ne: roomId },
-      location: room.location,
+      city: room.city, // Use city instead of location
       status: 'Available'
     })
     .limit(3)
-    .select('title price images location size rooms')
+    .select('title price images city size rooms')
     .lean();
     
-    // Format the response
+    // Determine what user can see based on auth status
+    const isAuthenticated = !!req.user;
+    const userId = req.user?._id;
+    
+    // Base response for all users (anonymous + authenticated)
     const response = {
       ...roomObj,
       relatedRooms,
-      isFavorite: req.user ? req.user.favoriteRooms?.includes(roomId) : false,
+      isAuthenticated,
       metadata: {
         createdAt: room.createdAt,
         lastUpdated: room.lastUpdated,
-        viewCount: (room.viewCount || 0) + 1 // Increment by 1 for the current view
+        viewCount: (room.viewCount || 0) + 1
       }
     };
-    
-    // If owner was populated, extract it for cleaner response
-    if (response.owner) {
-      response.owner = {
-        _id: response.owner._id,
-        name: response.owner.name,
-        email: response.owner.email,
-        profilePicture: response.owner.profilePicture,
-        lastActive: response.owner.lastActive,
-        totalListings: response.owner.totalListings
+
+    // Additional data for authenticated users only
+    if (isAuthenticated) {
+      response.isFavorite = req.user.favoriteRooms?.includes(roomId) || false;
+      response.canContact = true;
+      response.canJoinParty = room.shareable;
+      
+      // Show contact info for paid users or room owner
+      const user = await User.findById(userId);
+      if ((user.isPaid && user.paidUntil > new Date()) || room.owner._id.toString() === userId) {
+        response.contactInfo = {
+          phone: room.contactOptions?.phoneNumber || room.owner.socialMedia?.[0]?.phoneNumber,
+          canCallDirectly: room.contactOptions?.byPhone || false
+        };
+      }
+    } else {
+      // Anonymous users see limited info
+      response.isFavorite = false;
+      response.canContact = false;
+      response.canJoinParty = false;
+      response.authRequired = {
+        forContact: true,
+        forParties: room.shareable,
+        forFavorites: true
       };
     }
     
-    // Clean up sensitive or unnecessary data
+    // Clean up sensitive data
     delete response.__v;
     delete response.singleTenantApplications;
     delete response.partyApplications;
@@ -234,9 +245,6 @@ exports.getRoomById = async (req, res, next) => {
     res.json(response);
   } catch (err) {
     console.error('Error fetching room by ID:', err);
-    if (err.name === 'CastError') {
-      return res.status(400).json({ message: 'Invalid room ID format' });
-    }
     next(err);
   }
 };

@@ -45,7 +45,7 @@ auth.landlordAuth = async function (req, res, next) {
     
     // Get fresh user data from database
     const User = require('../models/User.model');
-    const user = await User.findById(decoded.id).select('isRoomOwner');
+    const user = await User.findById(decoded._id).select('isRoomOwner');
     
     if (!user) {
       return res.status(404).json({ 
