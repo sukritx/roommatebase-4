@@ -1,14 +1,17 @@
-module.exports = {
+import {heroui} from "@heroui/theme"
+
+/** @type {import('tailwindcss').Config} */
+export default {
   content: [
     "./index.html",
-    "./src/**/*.{js,jsx,ts,tsx}",
-    "./src/components/**/*.{js,jsx,ts,tsx}",
-    "./node_modules/shadcn/ui/dist/index.html",
-    "./node_modules/shadcn/ui/dist/**/*.js",
-    "./pages/**/*.{js,jsx,ts,tsx}",
+    './src/layouts/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
+    "./node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {},
   },
-  plugins: [],
-};
+  darkMode: "class",
+  plugins: [heroui()],
+}
