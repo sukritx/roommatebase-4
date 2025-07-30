@@ -1,60 +1,70 @@
-import { Link } from "@heroui/link";
-import { Snippet } from "@heroui/snippet";
-import { Code } from "@heroui/code";
-import { button as buttonStyles } from "@heroui/theme";
-
-import { siteConfig } from "@/config/site";
-import { title, subtitle } from "@/components/primitives";
-import { GithubIcon } from "@/components/icons";
-// import DefaultLayout from "@/layouts/default"; // <--- REMOVE THIS IMPORT, it's no longer needed here
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom"; // Use useNavigate for redirection
+import { Button } from "@heroui/button";
+import { Input } from "@heroui/input";
+import { title, subtitle } from "@/components/primitives"; // Your custom text styles
+import { SearchIcon } from "@/components/icons"; // Your search icon
+import { Link as RouterLink } from "react-router-dom";
 
 export default function IndexPage() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const navigate = useNavigate();
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      // Navigate to the browse page with the search query as a URL parameter
+      navigate(`/browse?location=${encodeURIComponent(searchQuery.trim())}`);
+    } else {
+      // If empty, navigate to browse page to show all rooms (or a default set)
+      navigate(`/browse`);
+    }
+  };
+
   return (
-    // <DefaultLayout> // <--- REMOVE THIS WRAPPER
-      <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
-        <div className="inline-block max-w-lg text-center justify-center">
-          <span className={title()}>Make&nbsp;</span>
-          <span className={title({ color: "violet" })}>beautiful&nbsp;</span>
-          <br />
-          <span className={title()}>
-            websites regardless of your design experience.
-          </span>
-          <div className={subtitle({ class: "mt-4" })}>
-            Beautiful, fast and modern React UI library.
-          </div>
+    <section className="flex flex-col items-center justify-center gap-8 py-8 md:py-10">
+      {/* Hero Section & Search Bar */}
+      <div className="inline-block max-w-lg text-center justify-center">
+        <span className={title()}>Find your perfect&nbsp;</span>
+        <span className={title({ color: "violet" })}>roommate base&nbsp;</span>
+        <br />
+        <span className={title()}>
+          where ever you are.
+        </span>
+        <div className={subtitle({ class: "mt-4" })}>
+          Discover shared living spaces and find compatible roommates.
         </div>
+      </div>
 
-        <div className="flex gap-3">
-          <Link
-            isExternal
-            className={buttonStyles({
-              color: "primary",
-              radius: "full",
-              variant: "shadow",
-            })}
-            href={siteConfig.links.docs}
-          >
-            Documentation
-          </Link>
-          <Link
-            isExternal
-            className={buttonStyles({ variant: "bordered", radius: "full" })}
-            href={siteConfig.links.github}
-          >
-            <GithubIcon size={20} />
-            GitHub
-          </Link>
-        </div>
+      <form onSubmit={handleSearchSubmit} className="flex w-full max-w-xl gap-2 relative">
+        <Input
+          type="text"
+          placeholder="Search by city or area..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          startContent={<SearchIcon className="text-default-400" />}
+          variant="bordered"
+          size="lg"
+          fullWidth
+        />
+        <Button type="submit" color="primary" size="lg">
+          Search
+        </Button>
+      </form>
 
-        <div className="mt-8">
-          <Snippet hideCopyButton hideSymbol variant="bordered">
-            <span>
-              Get started by editing{" "}
-              <Code color="primary">pages/index.tsx</Code>
-            </span>
-          </Snippet>
-        </div>
-      </section>
-    // </DefaultLayout> // <--- REMOVE THIS WRAPPER
+      {/* Optionally add some featured categories or quick links here */}
+      <div className="mt-10 text-center">
+        <h2 className={subtitle()}>Or browse all available rooms:</h2>
+        <Button
+          as={RouterLink} // Use RouterLink for internal navigation
+          to="/browse"
+          color="secondary"
+          variant="flat"
+          className="mt-4"
+        >
+          View All Rooms
+        </Button>
+      </div>
+    </section>
   );
 }
