@@ -27,13 +27,6 @@ export default function IndexPage() {
       <div className="inline-block max-w-lg text-center justify-center">
         <span className={title()}>Find your perfect&nbsp;</span>
         <span className={title({ color: "violet" })}>roommate base&nbsp;</span>
-        <br />
-        <span className={title()}>
-          where ever you are.
-        </span>
-        <div className={subtitle({ class: "mt-4" })}>
-          Discover shared living spaces and find compatible roommates.
-        </div>
       </div>
 
       <form onSubmit={handleSearchSubmit} className="flex w-full max-w-xl gap-2 relative">

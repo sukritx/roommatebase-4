@@ -465,7 +465,7 @@ export default function BrowseRoomsPage() {
                       </p>
                       {room.shareable && (
                         <div className="flex items-center text-sm text-default-600 gap-1">
-                          <span className="text-lg">🎉</span> {/* Party emoji */}
+                          <span className="text-lg">🧑‍🤝‍🧑</span> {/* Party emoji */}
                           <span>{getPartyCount(room)} Parties</span>
                         </div>
                       )}
