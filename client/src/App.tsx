@@ -9,7 +9,8 @@ import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
 import RoomDetailPage from "@/pages/room-detail";
 import AuthSuccessPage from "@/pages/auth-success";
-import BrowseRoomsPage from "@/pages/browse-rooms"; // <--- New Import
+import BrowseRoomsPage from "@/pages/browse-rooms";
+import DashboardPage from "@/pages/dashboard"; // <--- NEW IMPORT
 
 import DefaultLayout from "@/layouts/default";
 
@@ -25,8 +26,8 @@ function App() {
         <Route element={<LoginPage />} path="/login" />
         <Route element={<RegisterPage />} path="/register" />
         <Route element={<RoomDetailPage />} path="/rooms/:id" />
-        <Route element={<BrowseRoomsPage />} path="/browse" /> {/* <--- NEW ROUTE */}
-        {/* Add more routes like /dashboard, /profile, /create-listing here */}
+        <Route element={<BrowseRoomsPage />} path="/browse" />
+        <Route element={<DashboardPage />} path="/dashboard" /> {/* <--- NEW ROUTE */}
       </Route>
 
       <Route element={<AuthSuccessPage />} path="/auth/success" />

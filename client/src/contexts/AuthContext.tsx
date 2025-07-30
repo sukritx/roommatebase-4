@@ -13,13 +13,14 @@ interface User {
   freeQuotaUsed: number;
   userType: 'User' | 'Institution';
   isRoomOwner: boolean;
+  listedRooms?: any[]; // Add this to User interface if your profile endpoint returns it
   // Add other relevant user fields from your schema
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (token: string) => Promise<void>;
+  login: (token: string) => Promise<User>; // <--- Changed return type to Promise<User>
   logout: () => void;
   loading: boolean;
   checkAuthStatus: () => Promise<void>; // Expose for re-checking after an action
@@ -38,7 +39,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-  // Set default Authorization header for Axios
   axios.defaults.headers.common['Content-Type'] = 'application/json';
 
   const checkAuthStatus = async () => {
@@ -71,9 +71,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkAuthStatus();
   }, []);
 
-  const login = async (token: string) => {
+  // Modified login function to return the fetched user object
+  const login = async (token: string): Promise<User> => {
     localStorage.setItem('token', token);
-    await checkAuthStatus(); // Re-fetch user profile after login
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`; // Set header immediately
+
+    try {
+      setLoading(true); // Start loading when attempting login
+      const res = await axios.get(`${API_BASE_URL}/auth/profile`);
+      const loggedInUser: User = res.data;
+      setUser(loggedInUser);
+      setIsAuthenticated(true);
+      return loggedInUser; // Return the user object
+    } catch (err) {
+      console.error('Login failed during profile fetch:', err);
+      localStorage.removeItem('token');
+      delete axios.defaults.headers.common['Authorization'];
+      setUser(null);
+      setIsAuthenticated(false);
+      throw err; // Re-throw to allow component to catch and display error
+    } finally {
+      setLoading(false); // End loading
+    }
   };
 
   const logout = () => {

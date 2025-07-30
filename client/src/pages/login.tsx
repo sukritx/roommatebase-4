@@ -11,34 +11,62 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth(); // We don't need 'user' directly from context here
   const navigate = useNavigate();
   const location = useLocation();
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-  const VITE_GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+  // Helper function for redirection logic
+  const handleRedirectAfterLogin = (loggedInUser: { isRoomOwner?: boolean }) => {
+    if (loggedInUser?.isRoomOwner) {
+      navigate('/dashboard', { replace: true });
+    } else {
+      navigate('/', { replace: true }); // Redirect non-landlords to the homepage
+    }
+  };
 
   // Handle successful Google OAuth callback
   React.useEffect(() => {
+    // If already authenticated by another means, and landed here, just redirect
+    if (isAuthenticated) {
+      // Small delay to ensure AuthContext user state is fully propagated
+      // before attempting to redirect if it was already authenticated.
+      // In a very fast app, this might still be a race condition without a stronger pattern.
+      // But given we handle the Google token, it's fine for initial load.
+      // The primary path will be: no token -> receive token -> login() -> redirect.
+      return;
+    }
+
     const params = new URLSearchParams(location.search);
     const token = params.get('token');
     const authError = params.get('error');
 
     if (token) {
-      login(token).then(() => {
-        navigate('/dashboard', { replace: true }); // Redirect to dashboard after Google login
-      });
+      login(token) // This call now returns a Promise<User>
+        .then(loggedInUser => { // Capture the returned user immediately
+          handleRedirectAfterLogin(loggedInUser);
+        })
+        .catch(() => {
+          setError('Google login failed. Please try again.');
+          // Ensure token is removed if login promise rejects
+          localStorage.removeItem('token');
+          navigate('/login', { replace: true });
+        });
     } else if (authError) {
       setError('Google login failed. Please try again.');
     }
-  }, [location.search, login, navigate]);
+    // No need to add user, isAuthenticated to dependency array here, as the primary path is 'token' exists
+    // And if isAuthenticated is true on initial render, we return early.
+  }, [location.search, login, navigate, isAuthenticated]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
       const res = await axios.post(`${API_BASE_URL}/auth/login`, { email, password });
-      await login(res.data.token);
-      navigate('/dashboard'); // Redirect to dashboard or previous page
+      const loggedInUser = await login(res.data.token); // Capture the returned user
+      handleRedirectAfterLogin(loggedInUser); // Use it immediately
     } catch (err: any) {
       setError(err.response?.data?.msg || 'Login failed. Please check your credentials.');
     }
@@ -85,7 +113,7 @@ export default function LoginPage() {
             onClick={handleGoogleLogin}
             color="secondary"
             variant="flat"
-            startContent={<img src="/google-icon.svg" alt="Google" className="w-5 h-5" />} // Make sure you have this icon
+            startContent={<img src="/google-icon.svg" alt="Google" className="w-5 h-5" />}
           >
             Login with Google
           </Button>
