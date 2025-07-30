@@ -15,7 +15,8 @@ import { link as linkStyles } from "@heroui/theme";
 import clsx from "clsx";
 import { useNavigate } from "react-router-dom";
 
-// --- HeroUI Components ---
+// --- HeroUI Components from their individual packages ---
+// Ensure these imports are correct based on your actual Heroui installation
 import {  Dropdown,  DropdownTrigger,  DropdownMenu,  DropdownSection,  DropdownItem} from "@heroui/dropdown";
 import {Avatar, AvatarGroup, AvatarIcon} from "@heroui/avatar";
 
@@ -155,10 +156,15 @@ export const Navbar = () => {
                     <p className="font-semibold">Signed in as</p>
                     <p className="font-semibold">{user?.email}</p>
                   </DropdownItem>
-                  {/* Map navMenuItems from siteConfig.js */}
-                  {siteConfig.navMenuItems.map((item) => (
-                    <DropdownItem key={item.href.replace('/', '')}>{item.label}</DropdownItem>
+                  {/* Map navMenuItems from siteConfig.js, FILTERING OUT LOGOUT AND PROFILE */}
+                  {siteConfig.navMenuItems
+                    .filter(item => item.href !== "/logout" && item.href !== "/profile")
+                    .map((item) => (
+                      <DropdownItem key={item.href.replace('/', '')}>
+                        {item.label}
+                      </DropdownItem>
                   ))}
+                  {/* Dedicated Logout DropdownItem to ensure unique key */}
                   <DropdownItem key="logout" color="danger">
                     Log Out
                   </DropdownItem>
@@ -198,7 +204,7 @@ export const Navbar = () => {
             isAuthenticated ? (
               // Mobile menu items for logged-in user
               <>
-                <NavbarMenuItem>
+                <NavbarMenuItem key="mobile-profile"> {/* Unique key for mobile profile */}
                   <Link
                     className="w-full"
                     color="foreground"
@@ -208,45 +214,40 @@ export const Navbar = () => {
                     Profile
                   </Link>
                 </NavbarMenuItem>
-                {siteConfig.navMenuItems.map((item, index) => (
-                  item.href !== "/profile" && (
-                    <NavbarMenuItem key={`${item.href}-${index}`}>
+                {/* Map navMenuItems from siteConfig.js, FILTERING OUT LOGOUT AND PROFILE */}
+                {siteConfig.navMenuItems
+                  .filter(item => item.href !== "/profile" && item.href !== "/logout")
+                  .map((item, index) => (
+                    <NavbarMenuItem key={`${item.href}-${index}`}> {/* Unique key for each item */}
                       <Link
-                        color={
-                          item.href === "/logout"
-                            ? "danger"
-                            : "foreground"
-                        }
-                        href="#"
+                        color="foreground" // Or other color
+                        href="#" // Use # for onClick handling to prevent full page reload
                         size="lg"
                         onClick={() => {
-                          if (item.href === "/logout") handleLogout();
-                          else navigate(item.href);
+                          navigate(item.href); // Navigate for other items
                         }}
                       >
                         {item.label}
                       </Link>
                     </NavbarMenuItem>
-                  )
-                ))}
-                {!siteConfig.navMenuItems.some(item => item.href === "/logout") && (
-                  <NavbarMenuItem>
-                    <Link
-                      className="w-full"
-                      color="danger"
-                      href="#"
-                      size="lg"
-                      onClick={handleLogout}
-                    >
-                      Logout
-                    </Link>
-                  </NavbarMenuItem>
-                )}
+                  ))}
+                {/* Dedicated Logout NavbarMenuItem for mobile */}
+                <NavbarMenuItem key="mobile-logout"> {/* Unique key for mobile logout */}
+                  <Link
+                    className="w-full"
+                    color="danger" // Danger color for logout
+                    href="#"
+                    size="lg"
+                    onClick={handleLogout}
+                  >
+                    Logout
+                  </Link>
+                </NavbarMenuItem>
               </>
             ) : (
               // Mobile menu items for unauthenticated user (single "Sign In" button)
               <>
-                <NavbarMenuItem>
+                <NavbarMenuItem key="mobile-signin"> {/* Unique key for mobile signin */}
                   <Link className="w-full" color="primary" href="/login" size="lg">
                     Sign In
                   </Link>
