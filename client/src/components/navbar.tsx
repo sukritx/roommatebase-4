@@ -1,7 +1,7 @@
-import { Button } from "@heroui/button"; // From @heroui/button
-import { Kbd } from "@heroui/kbd";       // From @heroui/kbd
-import { Input } from "@heroui/input";   // From @heroui/input
-import { Link } from "@heroui/link";     // From @heroui/link
+import { Button } from "@heroui/button";
+import { Kbd } from "@heroui/kbd";
+import { Input } from "@heroui/input";
+import { Link } from "@heroui/link";
 import {
   Navbar as HeroUINavbar,
   NavbarBrand,
@@ -10,28 +10,27 @@ import {
   NavbarMenuToggle,
   NavbarMenu,
   NavbarMenuItem,
-} from "@heroui/navbar"; // Only Navbar-specific components from @heroui/navbar
-import { link as linkStyles } from "@heroui/theme"; // From @heroui/theme (for Tailwind variants)
-import clsx from "clsx"; // For conditional class names
-import { useNavigate } from "react-router-dom"; // For programmatic navigation
+} from "@heroui/navbar";
+import { link as linkStyles } from "@heroui/theme";
+import clsx from "clsx";
+import { useNavigate } from "react-router-dom";
 
-// --- HeroUI Components from @heroui/react (or your main HeroUI package) ---
-// If these are NOT from @heroui/react, adjust paths like "@heroui/avatar", "@heroui/dropdown" etc.
+// --- HeroUI Components ---
 import {  Dropdown,  DropdownTrigger,  DropdownMenu,  DropdownSection,  DropdownItem} from "@heroui/dropdown";
 import {Avatar, AvatarGroup, AvatarIcon} from "@heroui/avatar";
 
 // --- Local Imports ---
-import { siteConfig } from "@/config/site"; // Your site configuration
-import { ThemeSwitch } from "@/components/theme-switch"; // Your theme switch component
+import { siteConfig } from "@/config/site";
+import { ThemeSwitch } from "@/components/theme-switch";
 import {
   TwitterIcon,
   GithubIcon,
   DiscordIcon,
   HeartFilledIcon,
   SearchIcon,
-} from "@/components/icons"; // Your icon components
-import { Logo } from "@/components/icons"; // Your logo component
-import { useAuth } from '@/contexts/AuthContext'; // Your authentication context
+} from "@/components/icons";
+import { Logo } from "@/components/icons";
+import { useAuth } from '@/contexts/AuthContext';
 
 export const Navbar = () => {
   const { user, isAuthenticated, logout, loading } = useAuth();
@@ -72,7 +71,7 @@ export const Navbar = () => {
             href="/"
           >
             <Logo />
-            <p className="font-bold text-inherit">RoommateBase</p> {/* Your App Name */}
+            <p className="font-bold text-inherit">RoommateBase</p>
           </Link>
         </NavbarBrand>
         <div className="hidden lg:flex gap-4 justify-start ml-2">
@@ -120,7 +119,7 @@ export const Navbar = () => {
               {/* "Create Listing" button for room owner/landlord */}
               {user?.isRoomOwner && (
                  <Button
-                  as={Link} // Use HeroUI Link for consistent styling
+                  as={Link}
                   href="/create-listing" // This route needs to be defined
                   color="primary"
                   variant="solid"
@@ -156,10 +155,8 @@ export const Navbar = () => {
                     <p className="font-semibold">Signed in as</p>
                     <p className="font-semibold">{user?.email}</p>
                   </DropdownItem>
-                  {/* Map navMenuItems from siteConfig.js (e.g., Profile, Dashboard, Messages, Wishlists) */}
+                  {/* Map navMenuItems from siteConfig.js */}
                   {siteConfig.navMenuItems.map((item) => (
-                    // Exclude "Logout" if it's explicitly handled separately,
-                    // and "Profile" if you prefer a dedicated item above.
                     <DropdownItem key={item.href.replace('/', '')}>{item.label}</DropdownItem>
                   ))}
                   <DropdownItem key="logout" color="danger">
@@ -169,23 +166,15 @@ export const Navbar = () => {
               </Dropdown>
             </NavbarItem>
           ) : (
-            // No-login state: Show Login and Sign Up buttons
+            // No-login state: Show single "Sign In" button
             <NavbarItem className="hidden md:flex gap-2">
               <Button
                 as={Link}
                 color="primary"
-                href="/login"
-                variant="flat"
+                href="/login" // Directs to the login page, where user can choose to register
+                variant="solid" // Solid button for a prominent "Sign In"
               >
-                Login
-              </Button>
-              <Button
-                as={Link}
-                color="primary"
-                href="/register"
-                variant="solid"
-              >
-                Sign Up
+                Sign In
               </Button>
             </NavbarItem>
           )
@@ -220,7 +209,6 @@ export const Navbar = () => {
                   </Link>
                 </NavbarMenuItem>
                 {siteConfig.navMenuItems.map((item, index) => (
-                  // Filter out "Profile" if already handled, handle logout onClick
                   item.href !== "/profile" && (
                     <NavbarMenuItem key={`${item.href}-${index}`}>
                       <Link
@@ -229,7 +217,7 @@ export const Navbar = () => {
                             ? "danger"
                             : "foreground"
                         }
-                        href="#" // Use # for onClick handling to prevent full page reload
+                        href="#"
                         size="lg"
                         onClick={() => {
                           if (item.href === "/logout") handleLogout();
@@ -241,7 +229,6 @@ export const Navbar = () => {
                     </NavbarMenuItem>
                   )
                 ))}
-                {/* Ensure logout is always an option if needed */}
                 {!siteConfig.navMenuItems.some(item => item.href === "/logout") && (
                   <NavbarMenuItem>
                     <Link
@@ -257,16 +244,11 @@ export const Navbar = () => {
                 )}
               </>
             ) : (
-              // Mobile menu items for unauthenticated user
+              // Mobile menu items for unauthenticated user (single "Sign In" button)
               <>
                 <NavbarMenuItem>
                   <Link className="w-full" color="primary" href="/login" size="lg">
-                    Login
-                  </Link>
-                </NavbarMenuItem>
-                <NavbarMenuItem>
-                  <Link className="w-full" color="primary" href="/register" size="lg">
-                    Sign Up
+                    Sign In
                   </Link>
                 </NavbarMenuItem>
               </>
