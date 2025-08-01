@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'; // <--- Import useCallback
 import axios from 'axios';
 
 interface User {
@@ -13,17 +13,16 @@ interface User {
   freeQuotaUsed: number;
   userType: 'User' | 'Institution';
   isRoomOwner: boolean;
-  listedRooms?: any[]; // Add this to User interface if your profile endpoint returns it
-  // Add other relevant user fields from your schema
+  listedRooms?: any[];
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (token: string) => Promise<User>; // <--- Changed return type to Promise<User>
+  login: (token: string) => Promise<User>;
   logout: () => void;
   loading: boolean;
-  checkAuthStatus: () => Promise<void>; // Expose for re-checking after an action
+  checkAuthStatus: () => Promise<void>; // This function
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,7 +40,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   axios.defaults.headers.common['Content-Type'] = 'application/json';
 
-  const checkAuthStatus = async () => {
+  // Make checkAuthStatus a useCallback
+  const checkAuthStatus = useCallback(async () => {
     setLoading(true);
     const token = localStorage.getItem('token');
     if (token) {
@@ -65,43 +65,43 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsAuthenticated(false);
       setLoading(false);
     }
-  };
+  }, [API_BASE_URL]); // Dependencies for checkAuthStatus: only API_BASE_URL (which is stable)
 
   useEffect(() => {
     checkAuthStatus();
-  }, []);
+  }, [checkAuthStatus]); // useEffect now correctly depends on the memoized checkAuthStatus
 
   // Modified login function to return the fetched user object
-  const login = async (token: string): Promise<User> => {
+  const login = useCallback(async (token: string): Promise<User> => { // <--- Also memoize login
     localStorage.setItem('token', token);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`; // Set header immediately
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
     try {
-      setLoading(true); // Start loading when attempting login
+      setLoading(true);
       const res = await axios.get(`${API_BASE_URL}/auth/profile`);
       const loggedInUser: User = res.data;
       setUser(loggedInUser);
       setIsAuthenticated(true);
-      return loggedInUser; // Return the user object
+      return loggedInUser;
     } catch (err) {
       console.error('Login failed during profile fetch:', err);
       localStorage.removeItem('token');
       delete axios.defaults.headers.common['Authorization'];
       setUser(null);
       setIsAuthenticated(false);
-      throw err; // Re-throw to allow component to catch and display error
+      throw err;
     } finally {
-      setLoading(false); // End loading
+      setLoading(false);
     }
-  };
+  }, [API_BASE_URL]); // Dependencies for login
 
+  // logout function is fine as it is (no dependencies or state logic inside)
   const logout = () => {
     localStorage.removeItem('token');
     delete axios.defaults.headers.common['Authorization'];
     setUser(null);
     setIsAuthenticated(false);
-    // Redirect to login or home page after logout
-    window.location.href = '/login'; // Or use useNavigate from react-router-dom
+    window.location.href = '/login';
   };
 
   return (
