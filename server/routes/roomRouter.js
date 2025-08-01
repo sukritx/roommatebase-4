@@ -24,25 +24,22 @@ router.get('/', getRooms);                        // Get rooms by location
 // Anyone can view the details, but logged-in free users consume quota.
 // User object is attached if token is present, otherwise req.user is null.
 router.get('/:id', (req, res, next) => {
-  // Check for Authorization header and attempt to verify token
   const token = req.header('Authorization')?.replace('Bearer ', '');
   if (token) {
     try {
-      const jwt = require('jsonwebtoken'); // Import jwt here for this specific middleware
+      const jwt = require('jsonwebtoken');
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = decoded; // Attach user if token is valid
+      req.user = decoded;
     } catch (err) {
-      // Token invalid/expired, proceed as anonymous user
       req.user = null;
       console.warn('Invalid token for room details, proceeding as anonymous.');
     }
   } else {
-    // No token, proceed as anonymous user
     req.user = null;
   }
-  // Now apply the browsing limit (only if req.user is present)
+  // Apply the browsing limit (only if req.user is present)
   checkBrowsingLimit(req, res, next);
-});
+}, getRoomById);
 
 
 // Protected routes (require a valid JWT token)
