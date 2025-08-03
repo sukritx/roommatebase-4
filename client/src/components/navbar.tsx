@@ -16,17 +16,15 @@ import clsx from "clsx";
 import { useNavigate } from "react-router-dom";
 
 // --- HeroUI Components from their individual packages ---
-// Ensure these imports are correct based on your actual Heroui installation
-import {  Dropdown,  DropdownTrigger,  DropdownMenu,  DropdownSection,  DropdownItem} from "@heroui/dropdown";
-import {Avatar, AvatarGroup, AvatarIcon} from "@heroui/avatar";
+import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/dropdown";
+import { Avatar } from "@heroui/avatar";
+
 
 // --- Local Imports ---
 import { siteConfig } from "@/config/site";
 import { ThemeSwitch } from "@/components/theme-switch";
 import {
-  TwitterIcon,
-  GithubIcon,
-  DiscordIcon,
+  GithubIcon, // KEPT
   HeartFilledIcon,
   SearchIcon,
 } from "@/components/icons";
@@ -98,22 +96,15 @@ export const Navbar = () => {
         justify="end"
       >
         <NavbarItem className="hidden sm:flex gap-2">
-          <Link isExternal href={siteConfig.links.twitter} title="Twitter">
-            <TwitterIcon className="text-default-500" />
-          </Link>
-          <Link isExternal href={siteConfig.links.discord} title="Discord">
-            <DiscordIcon className="text-default-500" />
-          </Link>
+          {/* Only Github remains from social icons */}
           <Link isExternal href={siteConfig.links.github} title="GitHub">
             <GithubIcon className="text-default-500" />
           </Link>
           <ThemeSwitch />
         </NavbarItem>
-        {/* Render search input always, adjust visibility with Tailwind */}
         <NavbarItem className="hidden lg:flex">{searchInput}</NavbarItem>
 
-        {/* Conditional rendering for login/profile */}
-        {!loading && ( // Ensure auth state is loaded before rendering
+        {!loading && (
           isAuthenticated ? (
             // Logged-in user state
             <NavbarItem className="hidden md:flex gap-2 items-center">
@@ -138,7 +129,7 @@ export const Navbar = () => {
                     color="secondary"
                     name={user?.username || 'User'}
                     size="sm"
-                    src={user?.profilePicture || "https://i.pravatar.cc/150?u=a042581f4e29026704d"} // Fallback avatar
+                    src={user?.profilePicture || "https://i.pravatar.cc/150?u=a042581f4e29026704d"}
                   />
                 </DropdownTrigger>
                 <DropdownMenu
@@ -148,7 +139,7 @@ export const Navbar = () => {
                     if (key === "logout") {
                       handleLogout();
                     } else {
-                      navigate(`/${key}`); // Handles profile, dashboard, messages etc.
+                      navigate(`/${key}`);
                     }
                   }}
                 >
@@ -156,15 +147,47 @@ export const Navbar = () => {
                     <p className="font-semibold">Signed in as</p>
                     <p className="font-semibold">{user?.email}</p>
                   </DropdownItem>
-                  {/* Map navMenuItems from siteConfig.js, FILTERING OUT LOGOUT AND PROFILE */}
+
+                  <DropdownItem key="dashboard">
+                    Dashboard
+                  </DropdownItem>
+                  <DropdownItem key="profile">
+                    Profile
+                  </DropdownItem>
+                  <DropdownItem key="wishlists">
+                    Wishlists
+                  </DropdownItem>
+
+                  {/* Landlord Specific Items (if user is room owner) */}
+                  {user?.isRoomOwner && (
+                    <DropdownItem key="my-listings">
+                      My Listings
+                    </DropdownItem>
+                  )}
+
+                  {/* Filtered Site-Config Menu Items (remaining generic links) */}
                   {siteConfig.navMenuItems
-                    .filter(item => item.href !== "/logout" && item.href !== "/profile")
+                    .filter(item =>
+                      item.href !== "/logout" &&
+                      item.href !== "/profile" &&
+                      item.href !== "/dashboard" &&
+                      item.href !== "/messages" && // These are implicitly filtered by not being explicitly added above
+                      item.href !== "/wishlists" &&
+                      item.href !== "/my-listings" &&
+                      item.href !== "/inbox" &&
+                      item.href !== "/projects" && // Assuming these were examples from Heroui template
+                      item.href !== "/team" &&
+                      item.href !== "/calendar" &&
+                      item.href !== "/settings" &&
+                      item.href !== "/help-feedback"
+                    )
                     .map((item) => (
                       <DropdownItem key={item.href.replace('/', '')}>
                         {item.label}
                       </DropdownItem>
                   ))}
-                  {/* Dedicated Logout DropdownItem to ensure unique key */}
+
+                  {/* Dedicated Logout DropdownItem */}
                   <DropdownItem key="logout" color="danger">
                     Log Out
                   </DropdownItem>
@@ -177,8 +200,8 @@ export const Navbar = () => {
               <Button
                 as={Link}
                 color="primary"
-                href="/login" // Directs to the login page, where user can choose to register
-                variant="solid" // Solid button for a prominent "Sign In"
+                href="/login"
+                variant="solid"
               >
                 Sign In
               </Button>
@@ -188,7 +211,6 @@ export const Navbar = () => {
       </NavbarContent>
 
       <NavbarContent className="sm:hidden basis-1 pl-4" justify="end">
-        {/* Social Icons for mobile (optional, can be moved) */}
         <Link isExternal href={siteConfig.links.github}>
           <GithubIcon className="text-default-500" />
         </Link>
@@ -204,38 +226,64 @@ export const Navbar = () => {
             isAuthenticated ? (
               // Mobile menu items for logged-in user
               <>
-                <NavbarMenuItem key="mobile-profile"> {/* Unique key for mobile profile */}
-                  <Link
-                    className="w-full"
-                    color="foreground"
-                    href="/profile" // Link to actual profile page
-                    size="lg"
-                  >
+                <NavbarMenuItem key="mobile-profile">
+                  <Link className="w-full" color="foreground" href="/profile" size="lg">
                     Profile
                   </Link>
                 </NavbarMenuItem>
-                {/* Map navMenuItems from siteConfig.js, FILTERING OUT LOGOUT AND PROFILE */}
+                <NavbarMenuItem key="mobile-dashboard">
+                  <Link className="w-full" color="foreground" href="/dashboard" size="lg">
+                    Dashboard
+                  </Link>
+                </NavbarMenuItem>
+                <NavbarMenuItem key="mobile-wishlists">
+                  <Link className="w-full" color="foreground" href="/wishlists" size="lg">
+                    Wishlists
+                  </Link>
+                </NavbarMenuItem>
+
+                {/* Landlord Specific Items for Mobile */}
+                {user?.isRoomOwner && (
+                  <NavbarMenuItem key="mobile-my-listings">
+                    <Link className="w-full" color="foreground" href="/my-listings" size="lg">
+                      My Listings
+                    </Link>
+                  </NavbarMenuItem>
+                )}
+
+                {/* Filtered Site-Config Menu Items for Mobile */}
                 {siteConfig.navMenuItems
-                  .filter(item => item.href !== "/profile" && item.href !== "/logout")
+                  .filter(item =>
+                    item.href !== "/profile" &&
+                    item.href !== "/dashboard" &&
+                    item.href !== "/wishlists" &&
+                    item.href !== "/my-listings" &&
+                    item.href !== "/logout" &&
+                    item.href !== "/messages" && // Filtered out
+                    item.href !== "/inbox" && // Filtered out
+                    item.href !== "/projects" &&
+                    item.href !== "/team" &&
+                    item.href !== "/calendar" &&
+                    item.href !== "/settings" &&
+                    item.href !== "/help-feedback"
+                  )
                   .map((item, index) => (
-                    <NavbarMenuItem key={`${item.href}-${index}`}> {/* Unique key for each item */}
+                    <NavbarMenuItem key={`${item.href}-${index}`}>
                       <Link
-                        color="foreground" // Or other color
-                        href="#" // Use # for onClick handling to prevent full page reload
+                        color="foreground"
+                        href="#"
                         size="lg"
-                        onClick={() => {
-                          navigate(item.href); // Navigate for other items
-                        }}
+                        onClick={() => navigate(item.href)}
                       >
                         {item.label}
                       </Link>
                     </NavbarMenuItem>
                   ))}
                 {/* Dedicated Logout NavbarMenuItem for mobile */}
-                <NavbarMenuItem key="mobile-logout"> {/* Unique key for mobile logout */}
+                <NavbarMenuItem key="mobile-logout">
                   <Link
                     className="w-full"
-                    color="danger" // Danger color for logout
+                    color="danger"
                     href="#"
                     size="lg"
                     onClick={handleLogout}
@@ -245,9 +293,9 @@ export const Navbar = () => {
                 </NavbarMenuItem>
               </>
             ) : (
-              // Mobile menu items for unauthenticated user (single "Sign In" button)
+              // Mobile menu items for unauthenticated user
               <>
-                <NavbarMenuItem key="mobile-signin"> {/* Unique key for mobile signin */}
+                <NavbarMenuItem key="mobile-signin">
                   <Link className="w-full" color="primary" href="/login" size="lg">
                     Sign In
                   </Link>
