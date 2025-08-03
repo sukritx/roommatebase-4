@@ -11,7 +11,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { login, isAuthenticated } = useAuth(); // We don't need 'user' directly from context here
+  const { login } = useAuth(); // We don't need 'isAuthenticated' or 'user' directly here from context
   const navigate = useNavigate();
   const location = useLocation();
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -25,39 +25,39 @@ export default function LoginPage() {
     }
   };
 
-  // Handle successful Google OAuth callback
+  // Effect for handling Google OAuth callback
   React.useEffect(() => {
-    // If already authenticated by another means, and landed here, just redirect
-    if (isAuthenticated) {
-      // Small delay to ensure AuthContext user state is fully propagated
-      // before attempting to redirect if it was already authenticated.
-      // In a very fast app, this might still be a race condition without a stronger pattern.
-      // But given we handle the Google token, it's fine for initial load.
-      // The primary path will be: no token -> receive token -> login() -> redirect.
-      return;
-    }
-
     const params = new URLSearchParams(location.search);
     const token = params.get('token');
     const authError = params.get('error');
 
+    // If there's a token in the URL, attempt to log in.
+    // This handles the redirect after Google OAuth.
     if (token) {
+      // Clear URL parameters to prevent re-processing on subsequent renders
+      navigate(location.pathname, { replace: true });
+
       login(token) // This call now returns a Promise<User>
         .then(loggedInUser => { // Capture the returned user immediately
           handleRedirectAfterLogin(loggedInUser);
         })
-        .catch(() => {
+        .catch((err) => {
+          console.error("Google login useEffect catch:", err); // Log the error
           setError('Google login failed. Please try again.');
-          // Ensure token is removed if login promise rejects
-          localStorage.removeItem('token');
+          localStorage.removeItem('token'); // Ensure token is removed on failure
+          // Navigate to a clean login page state
           navigate('/login', { replace: true });
         });
     } else if (authError) {
+      console.error("Google OAuth Error in URL:", authError); // Log the error
       setError('Google login failed. Please try again.');
+      // Navigate to a clean login page state
+      navigate('/login', { replace: true });
     }
-    // No need to add user, isAuthenticated to dependency array here, as the primary path is 'token' exists
-    // And if isAuthenticated is true on initial render, we return early.
-  }, [location.search, login, navigate, isAuthenticated]);
+    // Dependencies: only `location.search`, `login`, `navigate`.
+    // We explicitly avoid `isAuthenticated` and `user` here to prevent race conditions
+    // as their values might not be stable immediately after a deep state update.
+  }, [location.search, login, navigate]);
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,6 +68,7 @@ export default function LoginPage() {
       const loggedInUser = await login(res.data.token); // Capture the returned user
       handleRedirectAfterLogin(loggedInUser); // Use it immediately
     } catch (err: any) {
+      console.error("Manual login catch:", err); // Log the error
       setError(err.response?.data?.msg || 'Login failed. Please check your credentials.');
     }
   };
