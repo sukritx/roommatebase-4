@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { useLocation, useNavigate, Link as RouterLink } from 'react-router-dom'; // Use RouterLink to avoid conflict
+import { useLocation, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { Input } from '@heroui/input';
 import { Button } from '@heroui/button';
-import { Checkbox, CheckboxGroup } from '@heroui/checkbox'; // For boolean filters
-import { RadioGroup, Radio } from '@heroui/radio'; // For enum filters
-import {Select, SelectSection, SelectItem} from "@heroui/select";
+import { Checkbox } from '@heroui/checkbox'; // CheckboxGroup not used directly
+import { Select, SelectItem } from "@heroui/select"; // SelectSection not used directly
 import { Card, CardBody, CardFooter } from '@heroui/card';
 import { Image } from '@heroui/image';
 import { Spinner } from '@heroui/spinner';
 import { title, subtitle } from '@/components/primitives';
-import { SearchIcon } from '@/components/icons'; // Your search icon
+import { SearchIcon } from '@/components/icons';
+import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from '@heroui/modal'; // Import Modal components
 
-// Define Room interface (same as in room-detail.tsx and index.tsx)
+// Define Room interface (same as before)
 interface Room {
   _id: string;
   images: string[];
@@ -41,7 +41,7 @@ interface Room {
   furnished: boolean;
 }
 
-// Define Filter State Interface
+// Define Filter State Interface (same as before)
 interface Filters {
   location: string;
   category: string;
@@ -56,7 +56,7 @@ interface Filters {
   seniorFriendly: boolean;
   studentsOnly: boolean;
   shareable: boolean;
-  socialHousing: boolean; // Maps to "Housing Cooperative"
+  socialHousing: boolean;
   parking: boolean;
   elevator: boolean;
   balcony: boolean;
@@ -67,7 +67,7 @@ interface Filters {
   dryer: boolean;
 }
 
-// Options for dropdowns/radios
+// Options for dropdowns/radios (same as before)
 const CATEGORY_OPTIONS = [
   { label: 'Any', value: '' },
   { label: 'Apartment', value: 'Apartment' },
@@ -95,6 +95,7 @@ const RENTAL_PERIOD_OPTIONS = [
   { label: 'Unlimited', value: 'Unlimited' },
 ];
 
+
 export default function BrowseRoomsPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -104,47 +105,32 @@ export default function BrowseRoomsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({
-    location: '',
-    category: '',
-    priceMax: '',
-    sizeMin: '',
-    sizeMax: '',
-    roomsMin: '',
-    roomsMax: '',
-    rentalPeriod: '',
-    takeoverDate: '', // Consider a date picker component here
-    petFriendly: false,
-    seniorFriendly: false,
-    studentsOnly: false,
-    shareable: false,
-    socialHousing: false,
-    parking: false,
-    elevator: false,
-    balcony: false,
-    electricChargingStation: false,
-    furnished: false,
-    dishwasher: false,
-    washingMachine: false,
-    dryer: false,
+    location: '', category: '', priceMax: '', sizeMin: '', sizeMax: '',
+    roomsMin: '', roomsMax: '', rentalPeriod: '', takeoverDate: '',
+    petFriendly: false, seniorFriendly: false, studentsOnly: false,
+    shareable: false, socialHousing: false, parking: false, elevator: false,
+    balcony: false, electricChargingStation: false, furnished: false,
+    dishwasher: false, washingMachine: false, dryer: false,
   });
+
+  // For responsive filter modal
+  const { isOpen: isFilterModalOpen, onOpen: onOpenFilterModal, onOpenChange: onOpenChangeFilterModal } = useDisclosure();
+
 
   const fetchRooms = useCallback(async (currentFilters: Filters) => {
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams();
-      // Dynamically add populated filters to params
       Object.entries(currentFilters).forEach(([key, value]) => {
         if (value !== '' && value !== false && value !== null) {
-          // Special handling for socialHousing if it maps to a category
           if (key === 'socialHousing' && value === true) {
-            params.append('category', 'Housing Cooperative');
+            params.append('category', 'Housing Cooperative'); // Map socialHousing to category
           } else if (typeof value === 'boolean') {
-            params.append(key, value.toString()); // Convert booleans to "true"/"false" strings
-          } else if (key === 'priceMax' || key === 'sizeMin' || key === 'sizeMax' || key === 'roomsMin' || key === 'roomsMax') {
-            params.append(key, String(value)); // Ensure numbers are strings
-          }
-          else {
+            params.append(key, value.toString());
+          } else if (typeof value === 'number') { // Ensure numbers are strings
+            params.append(key, String(value));
+          } else {
             params.append(key, value as string);
           }
         }
@@ -164,37 +150,48 @@ export default function BrowseRoomsPage() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const initialLocation = params.get('location') || '';
-    setFilters(prev => ({ ...prev, location: initialLocation }));
-    // Fetch rooms with the initial location
-    fetchRooms({ ...filters, location: initialLocation });
-  }, [location.search, fetchRooms]); // Depend on location.search and fetchRooms
+
+    // Initialize filters from URL parameters when component mounts or URL changes
+    const initialFilters: Filters = { ...filters }; // Start with default filters
+    params.forEach((value, key) => {
+        // Ensure values are parsed correctly from string back to their types
+        if (key in initialFilters) {
+            if (value === 'true') initialFilters[key as keyof Filters] = true as any;
+            else if (value === 'false') initialFilters[key as keyof Filters] = false as any;
+            else if (!isNaN(Number(value)) && (key.includes('price') || key.includes('size') || key.includes('rooms'))) initialFilters[key as keyof Filters] = Number(value) as any;
+            else initialFilters[key as keyof Filters] = value as any;
+        }
+    });
+    setFilters(initialFilters);
+    fetchRooms(initialFilters); // Fetch rooms with the parsed filters
+  }, [location.search, fetchRooms]);
 
 
   const handleFilterChange = (key: keyof Filters, value: any) => {
     setFilters(prev => {
       const newFilters = { ...prev, [key]: value };
-      // Potentially update URL here as well
+      // Update URL parameters
       const params = new URLSearchParams();
       Object.entries(newFilters).forEach(([filterKey, filterValue]) => {
         if (filterValue !== '' && filterValue !== false && filterValue !== null) {
           if (typeof filterValue === 'boolean') {
             params.append(filterKey, filterValue.toString());
-          } else if (filterKey === 'priceMax' || filterKey === 'sizeMin' || filterKey === 'sizeMax' || filterKey === 'roomsMin' || filterKey === 'roomsMax') {
+          } else if (typeof filterValue === 'number') {
             params.append(filterKey, String(filterValue));
-          }
-          else {
+          } else {
             params.append(filterKey, filterValue as string);
           }
         }
       });
-      navigate(`?${params.toString()}`, { replace: true }); // Update URL without navigating
+      navigate(`?${params.toString()}`, { replace: true });
       return newFilters;
     });
   };
 
-  const handleApplyFilters = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchRooms(filters); // Trigger fetch with current filters
+  const handleApplyFilters = (e?: React.FormEvent) => { // Make event optional for modal
+    e?.preventDefault(); // Only prevent default if event exists
+    fetchRooms(filters);
+    onOpenChangeFilterModal(false); // Close modal on apply
   };
 
   const handleClearFilters = () => {
@@ -207,217 +204,235 @@ export default function BrowseRoomsPage() {
       dishwasher: false, washingMachine: false, dryer: false,
     };
     setFilters(defaultFilters);
-    navigate(`/browse`, { replace: true }); // Clear URL parameters
+    navigate(`/browse`, { replace: true });
     fetchRooms(defaultFilters);
+    onOpenChangeFilterModal(false); // Close modal on clear
   };
 
   const getPartyCount = (room: Room) => {
     return room.shareable && room.partyApplications ? room.partyApplications.length : 0;
   };
 
+  // Common Filter Form Component to avoid duplication
+  const FilterFormContent = ({ onClear, onApply, filtersData, onFilterChangeData }) => (
+    <form onSubmit={onApply} className="flex flex-col gap-4">
+      <Input
+        type="text"
+        label="Location (City/Area)"
+        placeholder="e.g., Copenhagen"
+        value={filtersData.location}
+        onChange={(e) => onFilterChangeData('location', e.target.value)}
+        startContent={<SearchIcon className="text-default-400" />}
+      />
+      <Select
+        label="Category"
+        placeholder="Select a category"
+        selectedKeys={[filtersData.category]}
+        onSelectionChange={(keys) => {
+          const selectedKey = Array.from(keys)[0] as string;
+          onFilterChangeData('category', selectedKey);
+        }}
+        // HeroUI Select often needs a specific value prop or a controlled state for single select
+        // Check HeroUI docs if selectedKeys doesn't work for single value like this
+      >
+        {CATEGORY_OPTIONS.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </Select>
+      <Input
+        type="number"
+        label="Max Price"
+        placeholder="e.g., 5000"
+        value={filtersData.priceMax === '' ? '' : filtersData.priceMax.toString()}
+        onChange={(e) => onFilterChangeData('priceMax', e.target.value === '' ? '' : Number(e.target.value))}
+      />
+      <h3 className="font-semibold text-medium">Size (m²)</h3>
+      <div className="flex gap-2">
+        <Input
+          type="number"
+          label="Min"
+          placeholder="Min size"
+          value={filtersData.sizeMin === '' ? '' : filtersData.sizeMin.toString()}
+          onChange={(e) => onFilterChangeData('sizeMin', e.target.value === '' ? '' : Number(e.target.value))}
+        />
+        <Input
+          type="number"
+          label="Max"
+          placeholder="Max size"
+          value={filtersData.sizeMax === '' ? '' : filtersData.sizeMax.toString()}
+          onChange={(e) => onFilterChangeData('sizeMax', e.target.value === '' ? '' : Number(e.target.value))}
+        />
+      </div>
+      <h3 className="font-semibold text-medium">Number of Rooms</h3>
+      <div className="flex gap-2">
+        <Input
+          type="number"
+          label="Min"
+          placeholder="Min rooms"
+          value={filtersData.roomsMin === '' ? '' : filtersData.roomsMin.toString()}
+          onChange={(e) => onFilterChangeData('roomsMin', e.target.value === '' ? '' : Number(e.target.value))}
+        />
+        <Input
+          type="number"
+          label="Max"
+          placeholder="Max rooms"
+          value={filtersData.roomsMax === '' ? '' : filters.roomsMax.toString()}
+          onChange={(e) => onFilterChangeData('roomsMax', e.target.value === '' ? '' : Number(e.target.value))}
+        />
+      </div>
+      <Select
+        label="Rental Period"
+        placeholder="Select period"
+        selectedKeys={[filtersData.rentalPeriod]}
+        onSelectionChange={(keys) => {
+          const selectedKey = Array.from(keys)[0] as string;
+          onFilterChangeData('rentalPeriod', selectedKey);
+        }}
+      >
+        {RENTAL_PERIOD_OPTIONS.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </Select>
+      <h3 className="font-semibold text-medium mt-4">Lifestyle</h3>
+      <Checkbox
+        isSelected={filtersData.petFriendly}
+        onChange={(e) => onFilterChangeData('petFriendly', e.target.checked)}
+      >
+        Pet-friendly
+      </Checkbox>
+      <Checkbox
+        isSelected={filtersData.seniorFriendly}
+        onChange={(e) => onFilterChangeData('seniorFriendly', e.target.checked)}
+      >
+        Senior-friendly
+      </Checkbox>
+      <Checkbox
+        isSelected={filtersData.studentsOnly}
+        onChange={(e) => onFilterChangeData('studentsOnly', e.target.checked)}
+      >
+        Students Only
+      </Checkbox>
+      <Checkbox
+        isSelected={filtersData.shareable}
+        onChange={(e) => onFilterChangeData('shareable', e.target.checked)}
+      >
+        Shareable
+      </Checkbox>
+      <Checkbox
+        isSelected={filtersData.socialHousing}
+        onChange={(e) => onFilterChangeData('socialHousing', e.target.checked)}
+      >
+        Social Housing
+      </Checkbox>
+      <h3 className="font-semibold text-medium mt-4">Facilities</h3>
+      <Checkbox
+        isSelected={filtersData.parking}
+        onChange={(e) => onFilterChangeData('parking', e.target.checked)}
+      >
+        Parking
+      </Checkbox>
+      <Checkbox
+        isSelected={filtersData.elevator}
+        onChange={(e) => onFilterChangeData('elevator', e.target.checked)}
+      >
+        Elevator
+      </Checkbox>
+      <Checkbox
+        isSelected={filtersData.balcony}
+        onChange={(e) => onFilterChangeData('balcony', e.target.checked)}
+      >
+        Balcony
+      </Checkbox>
+      <Checkbox
+        isSelected={filtersData.electricChargingStation}
+        onChange={(e) => onFilterChangeData('electricChargingStation', e.target.checked)}
+      >
+        Electric Charging Station
+      </Checkbox>
+      <h3 className="font-semibold text-medium mt-4">Inventory</h3>
+      <Checkbox
+        isSelected={filtersData.furnished}
+        onChange={(e) => onFilterChangeData('furnished', e.target.checked)}
+      >
+        Furnished
+      </Checkbox>
+      <Checkbox
+        isSelected={filtersData.dishwasher}
+        onChange={(e) => onFilterChangeData('dishwasher', e.target.checked)}
+      >
+        Dishwasher
+      </Checkbox>
+      <Checkbox
+        isSelected={filtersData.washingMachine}
+        onChange={(e) => onFilterChangeData('washingMachine', e.target.checked)}
+      >
+        Washing Machine
+      </Checkbox>
+      <Checkbox
+        isSelected={filtersData.dryer}
+        onChange={(e) => onFilterChangeData('dryer', e.target.checked)}
+      >
+        Dryer
+      </Checkbox>
+      <Button type="submit" color="primary" className="mt-6">
+        Apply Filters
+      </Button>
+      <Button type="button" variant="flat" onPress={onClear}>
+        Clear Filters
+      </Button>
+    </form>
+  );
+
+
   return (
     <section className="container mx-auto max-w-7xl px-6 py-8 md:py-10">
       <div className="flex flex-col md:flex-row gap-8">
-        {/* Filters Sidebar */}
-        <aside className="w-full md:w-1/4 lg:w-1/5 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md flex-shrink-0 sticky top-20 h-fit"> {/* sticky for easier use */}
+        {/* Filter Button for Mobile */}
+        <div className="md:hidden flex justify-end mb-4">
+          <Button color="primary" onPress={onOpenFilterModal} startContent={<SearchIcon />}>
+            Show Filters
+          </Button>
+        </div>
+
+        {/* Filters Sidebar (Desktop) */}
+        <aside className="hidden md:block w-full md:w-1/4 lg:w-1/5 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md flex-shrink-0 sticky top-20 h-fit">
           <h2 className={title({ size: "sm" })}>Filters</h2>
-          <form onSubmit={handleApplyFilters} className="flex flex-col gap-4 mt-4">
-            {/* Location Search */}
-            <Input
-              type="text"
-              label="Location (City/Area)"
-              placeholder="e.g., Copenhagen"
-              value={filters.location}
-              onChange={(e) => handleFilterChange('location', e.target.value)}
-              startContent={<SearchIcon className="text-default-400" />}
-            />
-
-            {/* Category */}
-            <Select
-              label="Category"
-              placeholder="Select a category"
-              selectedKeys={[filters.category]}
-              onSelectionChange={(keys) => {
-                const selectedKey = Array.from(keys)[0] as string;
-                handleFilterChange('category', selectedKey);
-              }}
-              // You might need to adjust HeroUI Select's props for single value
-            >
-              {CATEGORY_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </Select>
-
-            {/* Price (Max) */}
-            <Input
-              type="number"
-              label="Max Price"
-              placeholder="e.g., 5000"
-              value={filters.priceMax === '' ? '' : filters.priceMax.toString()}
-              onChange={(e) => handleFilterChange('priceMax', e.target.value === '' ? '' : Number(e.target.value))}
-            />
-
-            {/* Size (sq.m) */}
-            <h3 className="font-semibold text-medium">Size (m²)</h3>
-            <div className="flex gap-2">
-              <Input
-                type="number"
-                label="Min"
-                placeholder="Min size"
-                value={filters.sizeMin === '' ? '' : filters.sizeMin.toString()}
-                onChange={(e) => handleFilterChange('sizeMin', e.target.value === '' ? '' : Number(e.target.value))}
-              />
-              <Input
-                type="number"
-                label="Max"
-                placeholder="Max size"
-                value={filters.sizeMax === '' ? '' : filters.sizeMax.toString()}
-                onChange={(e) => handleFilterChange('sizeMax', e.target.value === '' ? '' : Number(e.target.value))}
-              />
-            </div>
-
-            {/* Number of Rooms (min, max) */}
-            <h3 className="font-semibold text-medium">Number of Rooms</h3>
-            <div className="flex gap-2">
-              <Input
-                type="number"
-                label="Min"
-                placeholder="Min rooms"
-                value={filters.roomsMin === '' ? '' : filters.roomsMin.toString()}
-                onChange={(e) => handleFilterChange('roomsMin', e.target.value === '' ? '' : Number(e.target.value))}
-              />
-              <Input
-                type="number"
-                label="Max"
-                placeholder="Max rooms"
-                value={filters.roomsMax === '' ? '' : filters.roomsMax.toString()}
-                onChange={(e) => handleFilterChange('roomsMax', e.target.value === '' ? '' : Number(e.target.value))}
-              />
-            </div>
-
-            {/* Minimum Rental Period */}
-            <Select
-              label="Rental Period"
-              placeholder="Select period"
-              selectedKeys={[filters.rentalPeriod]}
-              onSelectionChange={(keys) => {
-                const selectedKey = Array.from(keys)[0] as string;
-                handleFilterChange('rentalPeriod', selectedKey);
-              }}
-            >
-              {RENTAL_PERIOD_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </Select>
-
-            {/* Takeover Date - Consider DatePicker if HeroUI has one */}
-            {/* <Input
-              type="date"
-              label="Takeover Date"
-              placeholder="YYYY-MM-DD"
-              value={filters.takeoverDate}
-              onChange={(e) => handleFilterChange('takeoverDate', e.target.value)}
-            /> */}
-
-            {/* Lifestyle */}
-            <h3 className="font-semibold text-medium mt-4">Lifestyle</h3>
-            <Checkbox
-              isSelected={filters.petFriendly}
-              onChange={(e) => handleFilterChange('petFriendly', e.target.checked)}
-            >
-              Pet-friendly
-            </Checkbox>
-            <Checkbox
-              isSelected={filters.seniorFriendly}
-              onChange={(e) => handleFilterChange('seniorFriendly', e.target.checked)}
-            >
-              Senior-friendly
-            </Checkbox>
-            <Checkbox
-              isSelected={filters.studentsOnly}
-              onChange={(e) => handleFilterChange('studentsOnly', e.target.checked)}
-            >
-              Students Only
-            </Checkbox>
-            <Checkbox
-              isSelected={filters.shareable}
-              onChange={(e) => handleFilterChange('shareable', e.target.checked)}
-            >
-              Shareable
-            </Checkbox>
-            <Checkbox
-              isSelected={filters.socialHousing}
-              onChange={(e) => handleFilterChange('socialHousing', e.target.checked)}
-            >
-              Social Housing
-            </Checkbox>
-
-            {/* Facilities */}
-            <h3 className="font-semibold text-medium mt-4">Facilities</h3>
-            <Checkbox
-              isSelected={filters.parking}
-              onChange={(e) => handleFilterChange('parking', e.target.checked)}
-            >
-              Parking
-            </Checkbox>
-            <Checkbox
-              isSelected={filters.elevator}
-              onChange={(e) => handleFilterChange('elevator', e.target.checked)}
-            >
-              Elevator
-            </Checkbox>
-            <Checkbox
-              isSelected={filters.balcony}
-              onChange={(e) => handleFilterChange('balcony', e.target.checked)}
-            >
-              Balcony
-            </Checkbox>
-            <Checkbox
-              isSelected={filters.electricChargingStation}
-              onChange={(e) => handleFilterChange('electricChargingStation', e.target.checked)}
-            >
-              Electric Charging Station
-            </Checkbox>
-
-            {/* Inventory */}
-            <h3 className="font-semibold text-medium mt-4">Inventory</h3>
-            <Checkbox
-              isSelected={filters.furnished}
-              onChange={(e) => handleFilterChange('furnished', e.target.checked)}
-            >
-              Furnished
-            </Checkbox>
-            <Checkbox
-              isSelected={filters.dishwasher}
-              onChange={(e) => handleFilterChange('dishwasher', e.target.checked)}
-            >
-              Dishwasher
-            </Checkbox>
-            <Checkbox
-              isSelected={filters.washingMachine}
-              onChange={(e) => handleFilterChange('washingMachine', e.target.checked)}
-            >
-              Washing Machine
-            </Checkbox>
-            <Checkbox
-              isSelected={filters.dryer}
-              onChange={(e) => handleFilterChange('dryer', e.target.checked)}
-            >
-              Dryer
-            </Checkbox>
-
-            <Button type="submit" color="primary" className="mt-6">
-              Apply Filters
-            </Button>
-            <Button type="button" variant="flat" onPress={handleClearFilters}>
-              Clear Filters
-            </Button>
-          </form>
+          <FilterFormContent
+            onClear={handleClearFilters}
+            onApply={handleApplyFilters}
+            filtersData={filters}
+            onFilterChangeData={handleFilterChange}
+          />
         </aside>
+
+        {/* Filter Modal (Mobile) */}
+        <Modal isOpen={isFilterModalOpen} onOpenChange={onOpenChangeFilterModal} scrollBehavior="inside">
+          <ModalContent>
+            {(onClose) => (
+              <>
+                <ModalHeader className="flex flex-col gap-1">Filters</ModalHeader>
+                <ModalBody>
+                  <FilterFormContent
+                    onClear={handleClearFilters}
+                    onApply={handleApplyFilters}
+                    filtersData={filters}
+                    onFilterChangeData={handleFilterChange}
+                  />
+                </ModalBody>
+                {/* Modal Footer can be used for close button if Apply/Clear are inside form */}
+                {/* <ModalFooter>
+                  <Button variant="light" onPress={onClose}>
+                    Close
+                  </Button>
+                </ModalFooter> */}
+              </>
+            )}
+          </ModalContent>
+        </Modal>
 
         {/* Room Results Section */}
         <main className="w-full md:w-3/4 lg:w-4/5">
