@@ -1,99 +1,30 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react'; // Import useRef
 import axios from 'axios';
 import { useLocation, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { Input } from '@heroui/input';
 import { Button } from '@heroui/button';
-import { Checkbox } from '@heroui/checkbox'; // CheckboxGroup not used directly
-import { Select, SelectItem } from "@heroui/select"; // SelectSection not used directly
+import { Checkbox } from '@heroui/checkbox';
+import { Select, SelectItem } from "@heroui/select";
 import { Card, CardBody, CardFooter } from '@heroui/card';
 import { Image } from '@heroui/image';
 import { Spinner } from '@heroui/spinner';
 import { title, subtitle } from '@/components/primitives';
 import { SearchIcon } from '@/components/icons';
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from '@heroui/modal'; // Import Modal components
+import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from '@heroui/modal';
 
-// Define Room interface (same as before)
-interface Room {
-  _id: string;
-  images: string[];
-  title: string;
-  description: string;
-  city: string;
-  country: string;
-  rooms: number;
-  category: string;
-  size: number; // in m²
-  price: number;
-  currency: string;
-  shareable: boolean;
-  partyApplications?: any[];
-  rentalPeriod: string;
-  availableDate?: string;
-  petsAllowed: boolean;
-  seniorFriendly: boolean;
-  studentsOnly: boolean;
-  balcony: boolean;
-  parking: boolean;
-  dishwasher: boolean;
-  washingMachine: boolean;
-  electricChargingStation: boolean;
-  dryer: boolean;
-  furnished: boolean;
-}
+// --- Import the moved FilterFormContent ---
+import FilterFormContent from '@/components/FilterFormContent'; // Adjust path if needed
 
-// Define Filter State Interface (same as before)
-interface Filters {
-  location: string;
-  category: string;
-  priceMax: number | '';
-  sizeMin: number | '';
-  sizeMax: number | '';
-  roomsMin: number | '';
-  roomsMax: number | '';
-  rentalPeriod: string;
-  takeoverDate: string;
-  petFriendly: boolean;
-  seniorFriendly: boolean;
-  studentsOnly: boolean;
-  shareable: boolean;
-  socialHousing: boolean;
-  parking: boolean;
-  elevator: boolean;
-  balcony: boolean;
-  electricChargingStation: boolean;
-  furnished: boolean;
-  dishwasher: boolean;
-  washingMachine: boolean;
-  dryer: boolean;
-}
+// ... (Room and Filters interfaces, CATEGORY_OPTIONS, RENTAL_PERIOD_OPTIONS remain the same) ...
 
-// Options for dropdowns/radios (same as before)
-const CATEGORY_OPTIONS = [
-  { label: 'Any', value: '' },
-  { label: 'Apartment', value: 'Apartment' },
-  { label: 'City house', value: 'City house' },
-  { label: 'Club room', value: 'Club room' },
-  { label: 'Condominium', value: 'Condominium' },
-  { label: 'Detached Single Family House', value: 'Detached Single Family House' },
-  { label: 'Double house', value: 'Double house' },
-  { label: 'Half double house', value: 'Half double house' },
-  { label: 'Housing Cooperative', value: 'Housing Cooperative' },
-  { label: 'Multi family house', value: 'Multi family house' },
-  { label: 'Parcel house', value: 'Parcel house' },
-  { label: 'Small house', value: 'Small house' },
-  { label: 'Summer house', value: 'Summer house' },
-  { label: 'Townhouse', value: 'Townhouse' },
-  { label: 'Villa', value: 'Villa' },
-  { label: 'Youth Housing', value: 'Youth Housing' },
-];
-
-const RENTAL_PERIOD_OPTIONS = [
-  { label: 'Any', value: '' },
-  { label: '1-11 months', value: '1-11 months' },
-  { label: '12-23 months', value: '12-23 months' },
-  { label: '24+ months', value: '24+ months' },
-  { label: 'Unlimited', value: 'Unlimited' },
-];
+const defaultFiltersTemplate: Filters = {
+  location: '', category: '', priceMax: '', sizeMin: '', sizeMax: '',
+  roomsMin: '', roomsMax: '', rentalPeriod: '', takeoverDate: '',
+  petFriendly: false, seniorFriendly: false, studentsOnly: false,
+  shareable: false, socialHousing: false, parking: false, elevator: false,
+  balcony: false, electricChargingStation: false, furnished: false,
+  dishwasher: false, washingMachine: false, dryer: false,
+};
 
 
 export default function BrowseRoomsPage() {
@@ -104,31 +35,26 @@ export default function BrowseRoomsPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Filters>({
-    location: '', category: '', priceMax: '', sizeMin: '', sizeMax: '',
-    roomsMin: '', roomsMax: '', rentalPeriod: '', takeoverDate: '',
-    petFriendly: false, seniorFriendly: false, studentsOnly: false,
-    shareable: false, socialHousing: false, parking: false, elevator: false,
-    balcony: false, electricChargingStation: false, furnished: false,
-    dishwasher: false, washingMachine: false, dryer: false,
-  });
+  // Separate display filters from applied filters to control re-fetch
+  const [displayFilters, setDisplayFilters] = useState<Filters>({ ...defaultFiltersTemplate });
+  const [appliedFilters, setAppliedFilters] = useState<Filters>({ ...defaultFiltersTemplate });
 
-  // For responsive filter modal
+
   const { isOpen: isFilterModalOpen, onOpen: onOpenFilterModal, onOpenChange: onOpenChangeFilterModal } = useDisclosure();
 
 
-  const fetchRooms = useCallback(async (currentFilters: Filters) => {
+  const fetchRooms = useCallback(async (filtersToApply: Filters) => { // Take filters as argument
     setLoading(true);
     setError(null);
     try {
       const params = new URLSearchParams();
-      Object.entries(currentFilters).forEach(([key, value]) => {
+      Object.entries(filtersToApply).forEach(([key, value]) => { // Use filtersToApply
         if (value !== '' && value !== false && value !== null) {
           if (key === 'socialHousing' && value === true) {
-            params.append('category', 'Housing Cooperative'); // Map socialHousing to category
+            params.append('category', 'Housing Cooperative');
           } else if (typeof value === 'boolean') {
             params.append(key, value.toString());
-          } else if (typeof value === 'number') { // Ensure numbers are strings
+          } else if (typeof value === 'number') {
             params.append(key, String(value));
           } else {
             params.append(key, value as string);
@@ -146,246 +72,67 @@ export default function BrowseRoomsPage() {
     }
   }, [API_BASE_URL]);
 
-  // Effect to read initial search query from URL and fetch rooms
+  // Effect to read initial search query from URL, set filters, and perform initial fetch
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const initialLocation = params.get('location') || '';
+    const currentUrlFilters: Filters = { ...defaultFiltersTemplate };
 
-    // Initialize filters from URL parameters when component mounts or URL changes
-    const initialFilters: Filters = { ...filters }; // Start with default filters
     params.forEach((value, key) => {
-        // Ensure values are parsed correctly from string back to their types
-        if (key in initialFilters) {
-            if (value === 'true') initialFilters[key as keyof Filters] = true as any;
-            else if (value === 'false') initialFilters[key as keyof Filters] = false as any;
-            else if (!isNaN(Number(value)) && (key.includes('price') || key.includes('size') || key.includes('rooms'))) initialFilters[key as keyof Filters] = Number(value) as any;
-            else initialFilters[key as keyof Filters] = value as any;
+        if (key in currentUrlFilters) {
+            if (value === 'true') currentUrlFilters[key as keyof Filters] = true as any;
+            else if (value === 'false') currentUrlFilters[key as keyof Filters] = false as any;
+            else if (!isNaN(Number(value)) && (key.includes('price') || key.includes('size') || key.includes('rooms'))) currentUrlFilters[key as keyof Filters] = Number(value) as any;
+            else currentUrlFilters[key as keyof Filters] = value as any;
         }
     });
-    setFilters(initialFilters);
-    fetchRooms(initialFilters); // Fetch rooms with the parsed filters
-  }, [location.search, fetchRooms]);
+
+    setDisplayFilters(currentUrlFilters); // Update display filters based on URL
+    setAppliedFilters(currentUrlFilters); // Set applied filters initially
+    fetchRooms(currentUrlFilters); // Perform initial fetch with parsed URL filters
+
+  }, [location.search, fetchRooms]); // Depend on location.search and memoized fetchRooms
 
 
+  // handleFilterChange only updates displayFilters state, NOT appliedFilters and NOT fetches rooms
   const handleFilterChange = (key: keyof Filters, value: any) => {
-    setFilters(prev => {
-      const newFilters = { ...prev, [key]: value };
-      // Update URL parameters
-      const params = new URLSearchParams();
-      Object.entries(newFilters).forEach(([filterKey, filterValue]) => {
-        if (filterValue !== '' && filterValue !== false && filterValue !== null) {
-          if (typeof filterValue === 'boolean') {
-            params.append(filterKey, filterValue.toString());
-          } else if (typeof filterValue === 'number') {
-            params.append(filterKey, String(filterValue));
-          } else {
-            params.append(filterKey, filterValue as string);
-          }
-        }
-      });
-      navigate(`?${params.toString()}`, { replace: true });
-      return newFilters;
-    });
+    setDisplayFilters(prev => ({ ...prev, [key]: value }));
+    // No navigate or fetchRooms call here
   };
 
-  const handleApplyFilters = (e?: React.FormEvent) => { // Make event optional for modal
-    e?.preventDefault(); // Only prevent default if event exists
-    fetchRooms(filters);
+  // handleApplyFilters now updates URL, sets applied filters, and fetches rooms
+  const handleApplyFilters = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    setAppliedFilters(displayFilters); // Update applied filters to current display state
+
+    const params = new URLSearchParams();
+    Object.entries(displayFilters).forEach(([filterKey, filterValue]) => {
+      if (filterValue !== '' && filterValue !== false && filterValue !== null) {
+        if (typeof filterValue === 'boolean') {
+          params.append(filterKey, filterValue.toString());
+        } else if (typeof filterValue === 'number') {
+          params.append(filterKey, String(filterValue));
+        } else {
+          params.append(filterKey, filterValue as string);
+        }
+      }
+    });
+    navigate(`?${params.toString()}`, { replace: true }); // Update URL
+
+    fetchRooms(displayFilters); // Fetch rooms based on current display filters
     onOpenChangeFilterModal(false); // Close modal on apply
   };
 
   const handleClearFilters = () => {
-    const defaultFilters: Filters = {
-      location: '', category: '', priceMax: '', sizeMin: '', sizeMax: '',
-      roomsMin: '', roomsMax: '', rentalPeriod: '', takeoverDate: '',
-      petFriendly: false, seniorFriendly: false, studentsOnly: false,
-      shareable: false, socialHousing: false, parking: false, elevator: false,
-      balcony: false, electricChargingStation: false, furnished: false,
-      dishwasher: false, washingMachine: false, dryer: false,
-    };
-    setFilters(defaultFilters);
-    navigate(`/browse`, { replace: true });
-    fetchRooms(defaultFilters);
+    setDisplayFilters(defaultFiltersTemplate); // Clear display filters
+    setAppliedFilters(defaultFiltersTemplate); // Clear applied filters
+    navigate(`/browse`, { replace: true }); // Clear URL parameters
+    fetchRooms(defaultFiltersTemplate); // Fetch all rooms
     onOpenChangeFilterModal(false); // Close modal on clear
   };
 
   const getPartyCount = (room: Room) => {
     return room.shareable && room.partyApplications ? room.partyApplications.length : 0;
   };
-
-  // Common Filter Form Component to avoid duplication
-  const FilterFormContent = ({ onClear, onApply, filtersData, onFilterChangeData }) => (
-    <form onSubmit={onApply} className="flex flex-col gap-4">
-      <Input
-        type="text"
-        label="Location (City/Area)"
-        placeholder="e.g., Copenhagen"
-        value={filtersData.location}
-        onChange={(e) => onFilterChangeData('location', e.target.value)}
-        startContent={<SearchIcon className="text-default-400" />}
-      />
-      <Select
-        label="Category"
-        placeholder="Select a category"
-        selectedKeys={[filtersData.category]}
-        onSelectionChange={(keys) => {
-          const selectedKey = Array.from(keys)[0] as string;
-          onFilterChangeData('category', selectedKey);
-        }}
-        // HeroUI Select often needs a specific value prop or a controlled state for single select
-        // Check HeroUI docs if selectedKeys doesn't work for single value like this
-      >
-        {CATEGORY_OPTIONS.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </Select>
-      <Input
-        type="number"
-        label="Max Price"
-        placeholder="e.g., 5000"
-        value={filtersData.priceMax === '' ? '' : filtersData.priceMax.toString()}
-        onChange={(e) => onFilterChangeData('priceMax', e.target.value === '' ? '' : Number(e.target.value))}
-      />
-      <h3 className="font-semibold text-medium">Size (m²)</h3>
-      <div className="flex gap-2">
-        <Input
-          type="number"
-          label="Min"
-          placeholder="Min size"
-          value={filtersData.sizeMin === '' ? '' : filtersData.sizeMin.toString()}
-          onChange={(e) => onFilterChangeData('sizeMin', e.target.value === '' ? '' : Number(e.target.value))}
-        />
-        <Input
-          type="number"
-          label="Max"
-          placeholder="Max size"
-          value={filtersData.sizeMax === '' ? '' : filtersData.sizeMax.toString()}
-          onChange={(e) => onFilterChangeData('sizeMax', e.target.value === '' ? '' : Number(e.target.value))}
-        />
-      </div>
-      <h3 className="font-semibold text-medium">Number of Rooms</h3>
-      <div className="flex gap-2">
-        <Input
-          type="number"
-          label="Min"
-          placeholder="Min rooms"
-          value={filtersData.roomsMin === '' ? '' : filtersData.roomsMin.toString()}
-          onChange={(e) => onFilterChangeData('roomsMin', e.target.value === '' ? '' : Number(e.target.value))}
-        />
-        <Input
-          type="number"
-          label="Max"
-          placeholder="Max rooms"
-          value={filtersData.roomsMax === '' ? '' : filters.roomsMax.toString()}
-          onChange={(e) => onFilterChangeData('roomsMax', e.target.value === '' ? '' : Number(e.target.value))}
-        />
-      </div>
-      <Select
-        label="Rental Period"
-        placeholder="Select period"
-        selectedKeys={[filtersData.rentalPeriod]}
-        onSelectionChange={(keys) => {
-          const selectedKey = Array.from(keys)[0] as string;
-          onFilterChangeData('rentalPeriod', selectedKey);
-        }}
-      >
-        {RENTAL_PERIOD_OPTIONS.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </Select>
-      <h3 className="font-semibold text-medium mt-4">Lifestyle</h3>
-      <Checkbox
-        isSelected={filtersData.petFriendly}
-        onChange={(e) => onFilterChangeData('petFriendly', e.target.checked)}
-      >
-        Pet-friendly
-      </Checkbox>
-      <Checkbox
-        isSelected={filtersData.seniorFriendly}
-        onChange={(e) => onFilterChangeData('seniorFriendly', e.target.checked)}
-      >
-        Senior-friendly
-      </Checkbox>
-      <Checkbox
-        isSelected={filtersData.studentsOnly}
-        onChange={(e) => onFilterChangeData('studentsOnly', e.target.checked)}
-      >
-        Students Only
-      </Checkbox>
-      <Checkbox
-        isSelected={filtersData.shareable}
-        onChange={(e) => onFilterChangeData('shareable', e.target.checked)}
-      >
-        Shareable
-      </Checkbox>
-      <Checkbox
-        isSelected={filtersData.socialHousing}
-        onChange={(e) => onFilterChangeData('socialHousing', e.target.checked)}
-      >
-        Social Housing
-      </Checkbox>
-      <h3 className="font-semibold text-medium mt-4">Facilities</h3>
-      <Checkbox
-        isSelected={filtersData.parking}
-        onChange={(e) => onFilterChangeData('parking', e.target.checked)}
-      >
-        Parking
-      </Checkbox>
-      <Checkbox
-        isSelected={filtersData.elevator}
-        onChange={(e) => onFilterChangeData('elevator', e.target.checked)}
-      >
-        Elevator
-      </Checkbox>
-      <Checkbox
-        isSelected={filtersData.balcony}
-        onChange={(e) => onFilterChangeData('balcony', e.target.checked)}
-      >
-        Balcony
-      </Checkbox>
-      <Checkbox
-        isSelected={filtersData.electricChargingStation}
-        onChange={(e) => onFilterChangeData('electricChargingStation', e.target.checked)}
-      >
-        Electric Charging Station
-      </Checkbox>
-      <h3 className="font-semibold text-medium mt-4">Inventory</h3>
-      <Checkbox
-        isSelected={filtersData.furnished}
-        onChange={(e) => onFilterChangeData('furnished', e.target.checked)}
-      >
-        Furnished
-      </Checkbox>
-      <Checkbox
-        isSelected={filtersData.dishwasher}
-        onChange={(e) => onFilterChangeData('dishwasher', e.target.checked)}
-      >
-        Dishwasher
-      </Checkbox>
-      <Checkbox
-        isSelected={filtersData.washingMachine}
-        onChange={(e) => onFilterChangeData('washingMachine', e.target.checked)}
-      >
-        Washing Machine
-      </Checkbox>
-      <Checkbox
-        isSelected={filtersData.dryer}
-        onChange={(e) => onFilterChangeData('dryer', e.target.checked)}
-      >
-        Dryer
-      </Checkbox>
-      <Button type="submit" color="primary" className="mt-6">
-        Apply Filters
-      </Button>
-      <Button type="button" variant="flat" onPress={onClear}>
-        Clear Filters
-      </Button>
-    </form>
-  );
 
 
   return (
@@ -404,7 +151,7 @@ export default function BrowseRoomsPage() {
           <FilterFormContent
             onClear={handleClearFilters}
             onApply={handleApplyFilters}
-            filtersData={filters}
+            filtersData={displayFilters} // <--- Pass displayFilters to form
             onFilterChangeData={handleFilterChange}
           />
         </aside>
@@ -419,16 +166,10 @@ export default function BrowseRoomsPage() {
                   <FilterFormContent
                     onClear={handleClearFilters}
                     onApply={handleApplyFilters}
-                    filtersData={filters}
+                    filtersData={displayFilters} // <--- Pass displayFilters to form
                     onFilterChangeData={handleFilterChange}
                   />
                 </ModalBody>
-                {/* Modal Footer can be used for close button if Apply/Clear are inside form */}
-                {/* <ModalFooter>
-                  <Button variant="light" onPress={onClose}>
-                    Close
-                  </Button>
-                </ModalFooter> */}
               </>
             )}
           </ModalContent>
