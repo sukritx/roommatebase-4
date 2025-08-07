@@ -1,7 +1,8 @@
+import React, { useState } from 'react'; // Import useState
 import { Button } from "@heroui/button";
 import { Kbd } from "@heroui/kbd";
 import { Input } from "@heroui/input";
-import { Link } from "@heroui/link";
+import { Link } from "@heroui/link"; // HeroUI Link for general use
 import {
   Navbar as HeroUINavbar,
   NavbarBrand,
@@ -13,18 +14,17 @@ import {
 } from "@heroui/navbar";
 import { link as linkStyles } from "@heroui/theme";
 import clsx from "clsx";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link as RouterLink } from "react-router-dom"; // <--- Import Link as RouterLink
 
 // --- HeroUI Components from their individual packages ---
-import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/dropdown";
-import { Avatar } from "@heroui/avatar";
-
+import {  Dropdown,  DropdownTrigger,  DropdownMenu,  DropdownItem} from "@heroui/dropdown";
+import {Avatar} from "@heroui/avatar";
 
 // --- Local Imports ---
 import { siteConfig } from "@/config/site";
 import { ThemeSwitch } from "@/components/theme-switch";
 import {
-  GithubIcon, // KEPT
+  GithubIcon,
   HeartFilledIcon,
   SearchIcon,
 } from "@/components/icons";
@@ -34,9 +34,17 @@ import { useAuth } from '@/contexts/AuthContext';
 export const Navbar = () => {
   const { user, isAuthenticated, logout, loading } = useAuth();
   const navigate = useNavigate();
+  // State to control mobile menu open/close status
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
+    setIsMenuOpen(false); // Close menu on logout
+  };
+
+  // Helper function to just close the menu after a router navigation happens
+  const closeMobileMenu = () => {
+    setIsMenuOpen(false);
   };
 
   const searchInput = (
@@ -61,13 +69,18 @@ export const Navbar = () => {
   );
 
   return (
-    <HeroUINavbar maxWidth="xl" position="sticky">
+    <HeroUINavbar
+      maxWidth="xl"
+      position="sticky"
+      isMenuOpen={isMenuOpen} // Pass control state
+      onMenuOpenChange={setIsMenuOpen} // Pass state setter
+    >
       <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
         <NavbarBrand className="gap-3 max-w-fit">
           <Link
             className="flex justify-start items-center gap-1"
             color="foreground"
-            href="/"
+            href="/" // HeroUI Link can take href for simple links or as={RouterLink} for React Router
           >
             <Logo />
             <p className="font-bold text-inherit">RoommateBase</p>
@@ -82,7 +95,7 @@ export const Navbar = () => {
                   "data-[active=true]:text-primary data-[active=true]:font-medium",
                 )}
                 color="foreground"
-                href={item.href}
+                href={item.href} // Default NavItems are usually simple links, can be `as={RouterLink} to={item.href}` if they map to React Router routes
               >
                 {item.label}
               </Link>
@@ -96,12 +109,12 @@ export const Navbar = () => {
         justify="end"
       >
         <NavbarItem className="hidden sm:flex gap-2">
-          {/* Only Github remains from social icons */}
           <Link isExternal href={siteConfig.links.github} title="GitHub">
             <GithubIcon className="text-default-500" />
           </Link>
           <ThemeSwitch />
         </NavbarItem>
+        {/* Render search input always, adjust visibility with Tailwind */}
         <NavbarItem className="hidden lg:flex">{searchInput}</NavbarItem>
 
         {!loading && (
@@ -111,8 +124,8 @@ export const Navbar = () => {
               {/* "Create Listing" button for room owner/landlord */}
               {user?.isRoomOwner && (
                  <Button
-                  as={Link}
-                  href="/create-listing" // This route needs to be defined
+                  as={Link} // Assuming HeroUI Link can handle 'href' for internal routes or external
+                  href="/create-listing"
                   color="primary"
                   variant="solid"
                  >
@@ -158,24 +171,22 @@ export const Navbar = () => {
                     Wishlists
                   </DropdownItem>
 
-                  {/* Landlord Specific Items (if user is room owner) */}
                   {user?.isRoomOwner && (
                     <DropdownItem key="my-listings">
                       My Listings
                     </DropdownItem>
                   )}
 
-                  {/* Filtered Site-Config Menu Items (remaining generic links) */}
                   {siteConfig.navMenuItems
                     .filter(item =>
                       item.href !== "/logout" &&
                       item.href !== "/profile" &&
                       item.href !== "/dashboard" &&
-                      item.href !== "/messages" && // These are implicitly filtered by not being explicitly added above
+                      item.href !== "/messages" &&
                       item.href !== "/wishlists" &&
                       item.href !== "/my-listings" &&
                       item.href !== "/inbox" &&
-                      item.href !== "/projects" && // Assuming these were examples from Heroui template
+                      item.href !== "/projects" &&
                       item.href !== "/team" &&
                       item.href !== "/calendar" &&
                       item.href !== "/settings" &&
@@ -187,7 +198,6 @@ export const Navbar = () => {
                       </DropdownItem>
                   ))}
 
-                  {/* Dedicated Logout DropdownItem */}
                   <DropdownItem key="logout" color="danger">
                     Log Out
                   </DropdownItem>
@@ -195,7 +205,6 @@ export const Navbar = () => {
               </Dropdown>
             </NavbarItem>
           ) : (
-            // No-login state: Show single "Sign In" button
             <NavbarItem className="hidden md:flex gap-2">
               <Button
                 as={Link}
@@ -215,7 +224,11 @@ export const Navbar = () => {
           <GithubIcon className="text-default-500" />
         </Link>
         <ThemeSwitch />
-        <NavbarMenuToggle />
+        {/* Pass control state to NavbarMenuToggle */}
+        <NavbarMenuToggle
+          aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+          className="ml-auto"
+        />
       </NavbarContent>
 
       {/* Mobile Menu */}
@@ -227,31 +240,57 @@ export const Navbar = () => {
               // Mobile menu items for logged-in user
               <>
                 <NavbarMenuItem key="mobile-profile">
-                  <Link className="w-full" color="foreground" href="/profile" size="lg">
+                  <Link
+                    className="w-full"
+                    color="foreground"
+                    as={RouterLink} // <--- Use as={RouterLink}
+                    to="/profile"   // <--- Use 'to' prop
+                    size="lg"
+                    onClick={closeMobileMenu} // <--- Close menu directly
+                  >
                     Profile
                   </Link>
                 </NavbarMenuItem>
                 <NavbarMenuItem key="mobile-dashboard">
-                  <Link className="w-full" color="foreground" href="/dashboard" size="lg">
+                  <Link
+                    className="w-full"
+                    color="foreground"
+                    as={RouterLink} // <--- Use as={RouterLink}
+                    to="/dashboard"  // <--- Use 'to' prop
+                    size="lg"
+                    onClick={closeMobileMenu} // <--- Close menu directly
+                  >
                     Dashboard
                   </Link>
                 </NavbarMenuItem>
                 <NavbarMenuItem key="mobile-wishlists">
-                  <Link className="w-full" color="foreground" href="/wishlists" size="lg">
+                  <Link
+                    className="w-full"
+                    color="foreground"
+                    as={RouterLink} // <--- Use as={RouterLink}
+                    to="/wishlists" // <--- Use 'to' prop
+                    size="lg"
+                    onClick={closeMobileMenu} // <--- Close menu directly
+                  >
                     Wishlists
                   </Link>
                 </NavbarMenuItem>
 
-                {/* Landlord Specific Items for Mobile */}
                 {user?.isRoomOwner && (
                   <NavbarMenuItem key="mobile-my-listings">
-                    <Link className="w-full" color="foreground" href="/my-listings" size="lg">
+                    <Link
+                      className="w-full"
+                      color="foreground"
+                      as={RouterLink} // <--- Use as={RouterLink}
+                      to="/my-listings" // <--- Use 'to' prop
+                      size="lg"
+                      onClick={closeMobileMenu} // <--- Close menu directly
+                    >
                       My Listings
                     </Link>
                   </NavbarMenuItem>
                 )}
 
-                {/* Filtered Site-Config Menu Items for Mobile */}
                 {siteConfig.navMenuItems
                   .filter(item =>
                     item.href !== "/profile" &&
@@ -259,8 +298,8 @@ export const Navbar = () => {
                     item.href !== "/wishlists" &&
                     item.href !== "/my-listings" &&
                     item.href !== "/logout" &&
-                    item.href !== "/messages" && // Filtered out
-                    item.href !== "/inbox" && // Filtered out
+                    item.href !== "/messages" &&
+                    item.href !== "/inbox" &&
                     item.href !== "/projects" &&
                     item.href !== "/team" &&
                     item.href !== "/calendar" &&
@@ -271,22 +310,22 @@ export const Navbar = () => {
                     <NavbarMenuItem key={`${item.href}-${index}`}>
                       <Link
                         color="foreground"
-                        href="#"
+                        as={RouterLink} // <--- Use as={RouterLink}
+                        to={item.href} // <--- Use 'to' prop
                         size="lg"
-                        onClick={() => navigate(item.href)}
+                        onClick={closeMobileMenu} // <--- Close menu directly
                       >
                         {item.label}
                       </Link>
                     </NavbarMenuItem>
                   ))}
-                {/* Dedicated Logout NavbarMenuItem for mobile */}
                 <NavbarMenuItem key="mobile-logout">
                   <Link
                     className="w-full"
                     color="danger"
-                    href="#"
+                    href="#" // Keep as # because handleLogout is called, which handles closing
                     size="lg"
-                    onClick={handleLogout}
+                    onClick={handleLogout} // handleLogout already closes the menu
                   >
                     Logout
                   </Link>
@@ -296,7 +335,14 @@ export const Navbar = () => {
               // Mobile menu items for unauthenticated user
               <>
                 <NavbarMenuItem key="mobile-signin">
-                  <Link className="w-full" color="primary" href="/login" size="lg">
+                  <Link
+                    className="w-full"
+                    color="primary"
+                    as={RouterLink} // <--- Use as={RouterLink}
+                    to="/login"    // <--- Use 'to' prop
+                    size="lg"
+                    onClick={closeMobileMenu} // <--- Close menu directly
+                  >
                     Sign In
                   </Link>
                 </NavbarMenuItem>
