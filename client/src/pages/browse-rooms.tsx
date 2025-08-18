@@ -1,10 +1,9 @@
-// browse-rooms.tsx (Illustrative structure based on common Next.js/React patterns)
+// browse-rooms.tsx
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@heroui/button'; // Assuming you have Button
-import { Input } from '@heroui/input'; // Assuming you have Input
-import { Card, CardBody, CardFooter } from '@heroui/card'; // Assuming Card components
+import { Button } from '@heroui/button';
+import { Input } from '@heroui/input';
+import { Card, CardBody, CardFooter } from '@heroui/card';
 import {
   Drawer,
   DrawerContent,
@@ -12,25 +11,27 @@ import {
   DrawerBody,
   DrawerFooter
 } from "@heroui/drawer";
-import { useMediaQuery } from 'react-responsive'; // For responsive behavior
+import { useMediaQuery } from 'react-responsive';
 
-import FilterFormContent from '@/components/FilterFormContent'; // Your filter form
-import { SearchIcon, FilterIcon } from '@/components/icons'; // Your icons
-import { title } from '@/components/primitives'; // For headings
+import FilterFormContent from '@/components/FilterFormContent';
+import { SearchIcon, FilterIcon } from '@/components/icons';
 
-// Define your Room interface, if not already in a shared type file
+import { useNavigate } from 'react-router-dom';
+
+
+// Define your Room interface
 interface Room {
   _id: string;
   title: string;
   price: number;
-  city: string; // Changed from location
-  state?: string; // New
-  zipCode: string; // New
-  country: string; // New
+  city: string;
+  state?: string;
+  zipCode: string;
+  country: string;
   images: string[];
   size: number;
   rooms: number;
-  bathrooms: number; // Assuming this exists for display
+  bathrooms: number;
   category: string;
   currency: string;
   // ... other room properties as per your schema
@@ -38,8 +39,7 @@ interface Room {
 
 // Initial state for filters, matching the FilterFormContent interface
 interface Filters {
-  city: string;
-  state: string;
+  locationSearch: string; // New combined field for city/state
   zipCode: string;
   country: string;
   category: string;
@@ -66,8 +66,7 @@ interface Filters {
 }
 
 const initialFilters: Filters = {
-  city: '',
-  state: '',
+  locationSearch: '', // Initialize new field
   zipCode: '',
   country: '',
   category: '',
@@ -163,17 +162,14 @@ const BrowseRoomsPage: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Removed: <h1 className={title()}>Browse Rooms</h1> */}
-
       {/* Filter Button for Mobile/Tablet */}
       {!isDesktop && (
-        // Changed justify-end to justify-center and added max-w-xs to the div
         <div className="flex justify-center mb-4 px-4 sm:max-w-sm mx-auto">
           <Button
             color="secondary"
             onPress={() => setIsFilterDrawerOpen(true)}
             startContent={<FilterIcon />}
-            className="w-full" // Make button wider
+            className="w-full"
           >
             Filters
           </Button>

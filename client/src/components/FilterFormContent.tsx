@@ -6,18 +6,13 @@ import { Button } from '@heroui/button';
 import { Checkbox } from '@heroui/checkbox';
 import { Select, SelectItem } from "@heroui/select";
 import { SearchIcon } from '@/components/icons';
-// title is not used here, can be removed if not used elsewhere in this file
-// import { title } from '@/components/primitives';
-
 
 // --- Re-defining these types/options directly in this component for clarity ---
-// (Alternatively, you can create a `client/src/types/filters.ts` and import from there)
 
 interface Filters {
-  city: string; // Changed from location
-  state: string; // New field
-  zipCode: string; // New field
-  country: string; // New field
+  locationSearch: string; // New combined field for city/state
+  zipCode: string; // Kept separate
+  country: string; // Kept separate
   category: string;
   priceMax: number | '';
   sizeMin: number | '';
@@ -25,7 +20,7 @@ interface Filters {
   roomsMin: number | '';
   roomsMax: number | '';
   rentalPeriod: string;
-  takeoverDate: string; // This needs to be a Date type if truly used as date, or string for input
+  takeoverDate: string;
   petFriendly: boolean;
   seniorFriendly: boolean;
   studentsOnly: boolean;
@@ -70,7 +65,6 @@ const RENTAL_PERIOD_OPTIONS = [
 // --- End Re-definitions ---
 
 
-// Correctly type the functional component:
 interface FilterFormContentProps {
   onClear: () => void;
   onApply: (e?: React.FormEvent) => void;
@@ -80,22 +74,16 @@ interface FilterFormContentProps {
 
 const FilterFormContent: React.FC<FilterFormContentProps> = ({ onClear, onApply, filtersData, onFilterChangeData }) => (
   <form onSubmit={onApply} className="flex flex-col gap-4">
-    {/* Changed from 'location' to 'city' */}
+    {/* Combined City/State input */}
     <Input
       type="text"
-      label="City"
-      placeholder="e.g., Copenhagen"
-      value={filtersData.city}
-      onChange={(e) => onFilterChangeData('city', e.target.value)}
+      label="City or Region"
+      placeholder="e.g., Copenhagen, Capital Region"
+      value={filtersData.locationSearch}
+      onChange={(e) => onFilterChangeData('locationSearch', e.target.value)}
       startContent={<SearchIcon className="text-default-400" />}
     />
-    <Input
-      type="text"
-      label="State/Region (Optional)"
-      placeholder="e.g., Capital Region"
-      value={filtersData.state}
-      onChange={(e) => onFilterChangeData('state', e.target.value)}
-    />
+    {/* Zip Code and Country remain separate */}
     <Input
       type="text"
       label="Zip Code (Optional)"
@@ -181,17 +169,6 @@ const FilterFormContent: React.FC<FilterFormContentProps> = ({ onClear, onApply,
         </SelectItem>
       ))}
     </Select>
-    {/* Takeover Date is present in the interface but no input field. If needed, add an Input type="date" */}
-    {/* Example:
-    <Input
-        type="date"
-        label="Available From (Takeover Date)"
-        placeholder="Select date"
-        value={filtersData.takeoverDate}
-        onChange={(e) => onFilterChangeData('takeoverDate', e.target.value)}
-    />
-    */}
-
     <h3 className="font-semibold text-medium mt-4">Lifestyle</h3>
     <Checkbox
       isSelected={filtersData.petFriendly}
