@@ -102,10 +102,8 @@ const BrowseRoomsPage: React.FC = () => {
 
   const isDesktop = useMediaQuery({ minWidth: 1024 });
 
-  // Initialize useNavigate hook
   const navigate = useNavigate();
 
-  // Function to fetch rooms based on current filters
   const fetchRooms = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -132,12 +130,10 @@ const BrowseRoomsPage: React.FC = () => {
     }
   }, [filters]);
 
-  // Initial fetch on component mount
   useEffect(() => {
     fetchRooms();
   }, [fetchRooms]);
 
-  // Handle filter input changes
   const handleFilterChange = useCallback((key: keyof Filters, value: any) => {
     setFilters((prevFilters) => ({
       ...prevFilters,
@@ -145,7 +141,6 @@ const BrowseRoomsPage: React.FC = () => {
     }));
   }, []);
 
-  // Handle apply filters action
   const handleApplyFilters = useCallback((e?: React.FormEvent) => {
     e?.preventDefault();
     fetchRooms();
@@ -154,7 +149,6 @@ const BrowseRoomsPage: React.FC = () => {
     }
   }, [fetchRooms, isDesktop]);
 
-  // Handle clear filters action
   const handleClearFilters = useCallback(() => {
     setFilters(initialFilters);
     fetchRooms();
@@ -163,23 +157,23 @@ const BrowseRoomsPage: React.FC = () => {
     }
   }, [fetchRooms, isDesktop]);
 
-  // Handle card click to navigate to room details
   const handleCardClick = useCallback((roomId: string) => {
-    // Assuming your room details route is /rooms/:id
     navigate(`/rooms/${roomId}`);
   }, [navigate]);
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className={title()}>Browse Rooms</h1>
+      {/* Removed: <h1 className={title()}>Browse Rooms</h1> */}
 
       {/* Filter Button for Mobile/Tablet */}
       {!isDesktop && (
-        <div className="flex justify-end mb-4">
+        // Changed justify-end to justify-center and added max-w-xs to the div
+        <div className="flex justify-center mb-4 px-4 sm:max-w-sm mx-auto">
           <Button
             color="secondary"
             onPress={() => setIsFilterDrawerOpen(true)}
             startContent={<FilterIcon />}
+            className="w-full" // Make button wider
           >
             Filters
           </Button>
@@ -233,7 +227,6 @@ const BrowseRoomsPage: React.FC = () => {
               <Card
                 key={room._id}
                 isPressable
-                // Call handleCardClick with the room's ID
                 onPress={() => handleCardClick(room._id)}
               >
                 <CardBody className="overflow-visible p-0">
@@ -254,8 +247,6 @@ const BrowseRoomsPage: React.FC = () => {
                     <p className="text-lg font-semibold">
                       {room.price} {room.currency}
                     </p>
-                    {/* REMOVED THE BUTTON */}
-                    {/* <Button size="sm">View Details</Button> */}
                   </div>
                 </CardFooter>
               </Card>
