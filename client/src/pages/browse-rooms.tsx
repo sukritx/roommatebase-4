@@ -16,8 +16,7 @@ import { useMediaQuery } from 'react-responsive';
 import FilterFormContent from '@/components/FilterFormContent';
 import { SearchIcon, FilterIcon } from '@/components/icons';
 
-import { useNavigate } from 'react-router-dom';
-
+import { useNavigate, useSearchParams } from 'react-router-dom'; // Import useSearchParams
 
 // Define your Room interface
 interface Room {
@@ -37,9 +36,9 @@ interface Room {
   // ... other room properties as per your schema
 }
 
-// Initial state for filters, matching the FilterFormContent interface
+// Initial state for filters (as a base, will be merged with URL params)
 interface Filters {
-  locationSearch: string; // New combined field for city/state
+  locationSearch: string;
   zipCode: string;
   country: string;
   category: string;
@@ -65,8 +64,8 @@ interface Filters {
   dryer: boolean;
 }
 
-const initialFilters: Filters = {
-  locationSearch: '', // Initialize new field
+const defaultInitialFilters: Filters = { // Renamed to clearly differentiate from URL-derived state
+  locationSearch: '',
   zipCode: '',
   country: '',
   category: '',
@@ -96,19 +95,41 @@ const BrowseRoomsPage: React.FC = () => {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Filters>(initialFilters);
-  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+
+  const [searchParams, setSearchParams] = useSearchParams(); // Get URL search params and setter
+
+  // Derive initial filters from URL search params
+  const getFiltersFromSearchParams = useCallback(() => {
+    const newFilters: Filters = { ...defaultInitialFilters }; // Start with defaults
+    // Iterate over expected filter keys and check if they exist in URL params
+    (Object.keys(defaultInitialFilters) as (keyof Filters)[]).forEach(key => {
+      const paramValue = searchParams.get(key);
+      if (paramValue !== null) {
+        // Special handling for boolean and number types
+        if (typeof defaultInitialFilters[key] === 'boolean') {
+          (newFilters as any)[key] = paramValue === 'true';
+        } else if (typeof defaultInitialFilters[key] === 'number' || (defaultInitialFilters[key] === '' && key.includes('Max') || key.includes('Min'))) {
+          (newFilters as any)[key] = paramValue === '' ? '' : Number(paramValue);
+        } else {
+          (newFilters as any)[key] = paramValue;
+        }
+      }
+    });
+    return newFilters;
+  }, [searchParams]);
+
+  const [filters, setFilters] = useState<Filters>(getFiltersFromSearchParams);
 
   const isDesktop = useMediaQuery({ minWidth: 1024 });
-
   const navigate = useNavigate();
 
-  const fetchRooms = useCallback(async () => {
+  // Function to fetch rooms based on current filters
+  const fetchRooms = useCallback(async (currentFilters: Filters) => { // Accept filters as argument
     setLoading(true);
     setError(null);
     try {
       const queryParams = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
+      Object.entries(currentFilters).forEach(([key, value]) => { // Use the provided filters
         if (value !== '' && value !== false && value !== null) {
           queryParams.append(key, String(value));
         }
@@ -127,34 +148,50 @@ const BrowseRoomsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, []); // Dependency array changed to be empty, as filters are passed as argument
 
+  // Effect to update filters state and trigger fetch when URL search params change
   useEffect(() => {
-    fetchRooms();
-  }, [fetchRooms]);
+    const newFilters = getFiltersFromSearchParams();
+    setFilters(newFilters);
+    fetchRooms(newFilters); // Fetch with the new filters from URL
+  }, [searchParams, getFiltersFromSearchParams, fetchRooms]); // Depend on searchParams
 
+  // Handle filter input changes - also update URL
   const handleFilterChange = useCallback((key: keyof Filters, value: any) => {
-    setFilters((prevFilters) => ({
-      ...prevFilters,
-      [key]: value,
-    }));
-  }, []);
+    setFilters((prevFilters) => {
+      const updatedFilters = { ...prevFilters, [key]: value };
+      // Update URL search params whenever filter changes
+      const newSearchParams = new URLSearchParams();
+      Object.entries(updatedFilters).forEach(([filterKey, filterValue]) => {
+        if (filterValue !== '' && filterValue !== false && filterValue !== null) {
+          newSearchParams.append(filterKey, String(filterValue));
+        }
+      });
+      setSearchParams(newSearchParams); // This will re-trigger the useEffect above
+      return updatedFilters;
+    });
+  }, [setSearchParams]);
 
+  // Handle apply filters action (no change needed here, as filter change updates URL)
   const handleApplyFilters = useCallback((e?: React.FormEvent) => {
     e?.preventDefault();
-    fetchRooms();
+    // fetchRooms() is now called by useEffect when searchParams change.
+    // So we just close the drawer here.
     if (!isDesktop) {
       setIsFilterDrawerOpen(false);
     }
-  }, [fetchRooms, isDesktop]);
+  }, [isDesktop]);
 
+  // Handle clear filters action - reset filters and clear URL
   const handleClearFilters = useCallback(() => {
-    setFilters(initialFilters);
-    fetchRooms();
+    setFilters(defaultInitialFilters);
+    setSearchParams(new URLSearchParams()); // Clear all URL parameters
+    // fetchRooms() will be called by useEffect after searchParams change
     if (!isDesktop) {
       setIsFilterDrawerOpen(false);
     }
-  }, [fetchRooms, isDesktop]);
+  }, [setSearchParams, isDesktop]);
 
   const handleCardClick = useCallback((roomId: string) => {
     navigate(`/rooms/${roomId}`);
@@ -162,7 +199,6 @@ const BrowseRoomsPage: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Filter Button for Mobile/Tablet */}
       {!isDesktop && (
         <div className="flex justify-center mb-4 px-4 sm:max-w-sm mx-auto">
           <Button
@@ -182,7 +218,7 @@ const BrowseRoomsPage: React.FC = () => {
           <div className="lg:col-span-1 border-r pr-6">
             <h2 className="text-xl font-semibold mb-4">Filters</h2>
             <FilterFormContent
-              filtersData={filters}
+              filtersData={filters} // This will now reflect URL params
               onFilterChangeData={handleFilterChange}
               onApply={handleApplyFilters}
               onClear={handleClearFilters}
@@ -200,7 +236,7 @@ const BrowseRoomsPage: React.FC = () => {
               </DrawerHeader>
               <DrawerBody>
                 <FilterFormContent
-                  filtersData={filters}
+                  filtersData={filters} // This will now reflect URL params
                   onFilterChangeData={handleFilterChange}
                   onApply={handleApplyFilters}
                   onClear={handleClearFilters}

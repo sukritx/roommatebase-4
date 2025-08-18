@@ -1,3 +1,5 @@
+// index.tsx
+
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom"; // Use useNavigate for redirection
 import { Button } from "@heroui/button";
@@ -14,7 +16,8 @@ export default function IndexPage() {
     e.preventDefault();
     if (searchQuery.trim()) {
       // Navigate to the browse page with the search query as a URL parameter
-      navigate(`/browse?location=${encodeURIComponent(searchQuery.trim())}`);
+      // CHANGE HERE: Use 'locationSearch' instead of 'location'
+      navigate(`/browse?locationSearch=${encodeURIComponent(searchQuery.trim())}`);
     } else {
       // If empty, navigate to browse page to show all rooms (or a default set)
       navigate(`/browse`);
