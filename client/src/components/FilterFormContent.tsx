@@ -1,23 +1,23 @@
 // client/src/components/FilterFormContent.tsx
 
-import React from 'react'; // Don't forget to import React
+import React from 'react';
 import { Input } from '@heroui/input';
 import { Button } from '@heroui/button';
 import { Checkbox } from '@heroui/checkbox';
 import { Select, SelectItem } from "@heroui/select";
 import { SearchIcon } from '@/components/icons';
-import { title } from '@/components/primitives'; // Not strictly needed here, but kept for consistency
+// title is not used here, can be removed if not used elsewhere in this file
+// import { title } from '@/components/primitives';
 
-// Assume Filters, CATEGORY_OPTIONS, RENTAL_PERIOD_OPTIONS are imported from a shared constants/types file
-// Or you can re-define them here if they are truly only for this component.
-// For now, let's assume a shared file or we will define them right here.
-// Re-defining them directly within this file is safer if they are specific to these filters.
 
 // --- Re-defining these types/options directly in this component for clarity ---
 // (Alternatively, you can create a `client/src/types/filters.ts` and import from there)
 
 interface Filters {
-  location: string;
+  city: string; // Changed from location
+  state: string; // New field
+  zipCode: string; // New field
+  country: string; // New field
   category: string;
   priceMax: number | '';
   sizeMin: number | '';
@@ -25,7 +25,7 @@ interface Filters {
   roomsMin: number | '';
   roomsMax: number | '';
   rentalPeriod: string;
-  takeoverDate: string;
+  takeoverDate: string; // This needs to be a Date type if truly used as date, or string for input
   petFriendly: boolean;
   seniorFriendly: boolean;
   studentsOnly: boolean;
@@ -80,13 +80,35 @@ interface FilterFormContentProps {
 
 const FilterFormContent: React.FC<FilterFormContentProps> = ({ onClear, onApply, filtersData, onFilterChangeData }) => (
   <form onSubmit={onApply} className="flex flex-col gap-4">
+    {/* Changed from 'location' to 'city' */}
     <Input
       type="text"
-      label="Location (City/Area)"
+      label="City"
       placeholder="e.g., Copenhagen"
-      value={filtersData.location}
-      onChange={(e) => onFilterChangeData('location', e.target.value)}
+      value={filtersData.city}
+      onChange={(e) => onFilterChangeData('city', e.target.value)}
       startContent={<SearchIcon className="text-default-400" />}
+    />
+    <Input
+      type="text"
+      label="State/Region (Optional)"
+      placeholder="e.g., Capital Region"
+      value={filtersData.state}
+      onChange={(e) => onFilterChangeData('state', e.target.value)}
+    />
+    <Input
+      type="text"
+      label="Zip Code (Optional)"
+      placeholder="e.g., 1000"
+      value={filtersData.zipCode}
+      onChange={(e) => onFilterChangeData('zipCode', e.target.value)}
+    />
+    <Input
+      type="text"
+      label="Country"
+      placeholder="e.g., Denmark"
+      value={filtersData.country}
+      onChange={(e) => onFilterChangeData('country', e.target.value)}
     />
     <Select
       label="Category"
@@ -159,6 +181,17 @@ const FilterFormContent: React.FC<FilterFormContentProps> = ({ onClear, onApply,
         </SelectItem>
       ))}
     </Select>
+    {/* Takeover Date is present in the interface but no input field. If needed, add an Input type="date" */}
+    {/* Example:
+    <Input
+        type="date"
+        label="Available From (Takeover Date)"
+        placeholder="Select date"
+        value={filtersData.takeoverDate}
+        onChange={(e) => onFilterChangeData('takeoverDate', e.target.value)}
+    />
+    */}
+
     <h3 className="font-semibold text-medium mt-4">Lifestyle</h3>
     <Checkbox
       isSelected={filtersData.petFriendly}
@@ -188,7 +221,7 @@ const FilterFormContent: React.FC<FilterFormContentProps> = ({ onClear, onApply,
       isSelected={filtersData.socialHousing}
       onChange={(e) => onFilterChangeData('socialHousing', e.target.checked)}
     >
-      Social Housing
+      Social Housing (Housing Cooperative)
     </Checkbox>
     <h3 className="font-semibold text-medium mt-4">Facilities</h3>
     <Checkbox

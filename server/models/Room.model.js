@@ -96,10 +96,15 @@ const RoomSchema = new mongoose.Schema({
 });
 
 RoomSchema.index({ city: 1 }); // For city searches
-RoomSchema.index({ zipCode: 1 }); // For zip code searches
-RoomSchema.index({ country: 1 }); // If you offer multi-country search/filtering
-RoomSchema.index({ coordinates: "2dsphere" }); // Already there, good!
-// ... and other indexes like price, category, owner, status, createdAt
+RoomSchema.index({ state: 1 }); // New index
+RoomSchema.index({ zipCode: 1 }); // New index
+RoomSchema.index({ country: 1 }); // New index
+RoomSchema.index({ coordinates: "2dsphere" });
+RoomSchema.index({ price: 1 });
+RoomSchema.index({ category: 1 });
+RoomSchema.index({ owner: 1 });
+RoomSchema.index({ status: 1 });
+RoomSchema.index({ createdAt: -1 });
 
 RoomSchema.virtual('calculatedMoveInPrice').get(function() {
   return this.price + this.deposit + this.prepaidRent;

@@ -7,12 +7,20 @@ const { ErrorHandler } = require('../middleware/errorHandler');
 // Get rooms by location (city/area required)
 exports.getRooms = async (req, res, next) => {
   try {
-    const { location } = req.query;
-    if (!location) {
-      return res.status(400).json({ message: 'Location (city/area) is required.' });
+    const { city, state, zipCode, country } = req.query; // Destructure new fields
+    const filter = {};
+
+    if (!city && !state && !zipCode && !country) {
+        return res.status(400).json({ message: 'At least one location parameter (city, state, zipCode, or country) is required.' });
     }
-    // Case-insensitive match for location
-    const rooms = await Room.find({ location: { $regex: new RegExp(location, 'i') } }).sort({ createdAt: -1 });
+
+    // Build the filter object based on provided location parameters
+    if (city) filter.city = { $regex: new RegExp(city, 'i') };
+    if (state) filter.state = { $regex: new RegExp(state, 'i') };
+    if (zipCode) filter.zipCode = { $regex: new RegExp(zipCode, 'i') };
+    if (country) filter.country = { $regex: new RegExp(country, 'i') };
+
+    const rooms = await Room.find(filter).sort({ createdAt: -1 });
     res.json(rooms);
   } catch (err) {
     next(err);
@@ -20,11 +28,16 @@ exports.getRooms = async (req, res, next) => {
 };
 
 // Get filtered rooms for feed
+// Get filtered rooms for feed
 exports.getRoomsFiltered = async (req, res, next) => {
   try {
     const {
+      city, // New filter field
+      state, // New filter field
+      zipCode, // New filter field
+      country, // New filter field
       category,
-      price,
+      priceMax, // Renamed from 'price' to 'priceMax' to be consistent with frontend
       sizeMin,
       sizeMax,
       roomsMin,
@@ -35,7 +48,7 @@ exports.getRoomsFiltered = async (req, res, next) => {
       seniorFriendly,
       studentsOnly,
       shareable,
-      socialHousing,
+      socialHousing, // This maps to 'Housing Cooperative' in schema
       parking,
       elevator,
       balcony,
@@ -47,8 +60,15 @@ exports.getRoomsFiltered = async (req, res, next) => {
     } = req.query;
 
     const filter = {};
+
+    // Apply location filters
+    if (city) filter.city = { $regex: new RegExp(city, 'i') };
+    if (state) filter.state = { $regex: new RegExp(state, 'i') };
+    if (zipCode) filter.zipCode = { $regex: new RegExp(zipCode, 'i') };
+    if (country) filter.country = { $regex: new RegExp(country, 'i') };
+
     if (category) filter.category = category;
-    if (price) filter.price = { $lte: Number(price) };
+    if (priceMax) filter.price = { $lte: Number(priceMax) }; // Use priceMax
     if (sizeMin || sizeMax) {
       filter.size = {};
       if (sizeMin) filter.size.$gte = Number(sizeMin);
@@ -78,10 +98,6 @@ exports.getRoomsFiltered = async (req, res, next) => {
     if (washingMachine === 'true') filter.washingMachine = true;
     if (dryer === 'true') filter.dryer = true;
 
-    // Add location filter if present
-    if (req.query.location) {
-      filter.location = { $regex: new RegExp(req.query.location, 'i') };
-    }
     const rooms = await Room.find(filter).sort({ createdAt: -1 });
     res.json(rooms);
   } catch (err) {
@@ -92,33 +108,38 @@ exports.getRoomsFiltered = async (req, res, next) => {
 // Returns city/area suggestions based on a partial query
 exports.suggestLocations = async (req, res, next) => {
   try {
-    const { query } = req.query;
-    
+    const { query, type } = req.query; // Added 'type' to specify which field to query
+
     // Input validation
     if (!query || typeof query !== 'string' || query.trim().length < 2) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Query parameter must be at least 2 characters long' 
+      return res.status(400).json({
+        success: false,
+        message: 'Query parameter must be at least 2 characters long'
       });
     }
 
-    // Sanitize the query to prevent regex injection
     const sanitizedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    
+
+    let fieldToSearch = 'city'; // Default to city
+    if (type === 'state') fieldToSearch = 'state';
+    if (type === 'zipCode') fieldToSearch = 'zipCode';
+    if (type === 'country') fieldToSearch = 'country';
+
+
     const suggestions = await Room.aggregate([
-      { 
-        $match: { 
-          location: { 
+      {
+        $match: {
+          [fieldToSearch]: {
             $regex: `^${sanitizedQuery}`, // Starts with query (case-insensitive)
-            $options: 'i' 
-          } 
-        } 
+            $options: 'i'
+          }
+        }
       },
-      { 
-        $group: { 
-          _id: { $toLower: "$location" }, // Case-insensitive grouping
-          location: { $first: "$location" } // Keep original case for display
-        } 
+      {
+        $group: {
+          _id: { $toLower: `$${fieldToSearch}` }, // Case-insensitive grouping by the selected field
+          location: { $first: `$${fieldToSearch}` } // Keep original case for display
+        }
       },
       { $sort: { _id: 1 } }, // Sort alphabetically
       { $limit: 10 },
