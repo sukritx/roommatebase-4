@@ -16,7 +16,7 @@ import { useMediaQuery } from 'react-responsive';
 import FilterFormContent from '@/components/FilterFormContent';
 import { SearchIcon, FilterIcon } from '@/components/icons';
 
-import { useNavigate, useSearchParams } from 'react-router-dom'; // Import useSearchParams
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 // Define your Room interface
 interface Room {
@@ -98,6 +98,9 @@ const BrowseRoomsPage: React.FC = () => {
 
   const [searchParams, setSearchParams] = useSearchParams(); // Get URL search params and setter
 
+  // **FIX: Ensure isFilterDrawerOpen state is declared here**
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false); // <--- THIS LINE IS CRUCIAL AND WAS MISSING/MISPLACED
+
   // Derive initial filters from URL search params
   const getFiltersFromSearchParams = useCallback(() => {
     const newFilters: Filters = { ...defaultInitialFilters }; // Start with defaults
@@ -176,8 +179,6 @@ const BrowseRoomsPage: React.FC = () => {
   // Handle apply filters action (no change needed here, as filter change updates URL)
   const handleApplyFilters = useCallback((e?: React.FormEvent) => {
     e?.preventDefault();
-    // fetchRooms() is now called by useEffect when searchParams change.
-    // So we just close the drawer here.
     if (!isDesktop) {
       setIsFilterDrawerOpen(false);
     }
@@ -226,7 +227,7 @@ const BrowseRoomsPage: React.FC = () => {
           </div>
         ) : (
           <Drawer
-            isOpen={isFilterDrawerOpen}
+            isOpen={isFilterDrawerOpen} // <--- This line caused the error when isFilterDrawerOpen was not defined.
             onClose={() => setIsFilterDrawerOpen(false)}
             placement="right"
           >
