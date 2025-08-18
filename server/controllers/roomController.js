@@ -7,18 +7,25 @@ const { ErrorHandler } = require('../middleware/errorHandler');
 // Get rooms by location (city/area required)
 exports.getRooms = async (req, res, next) => {
   try {
-    const { city, state, zipCode, country } = req.query; // Destructure new fields
+    const { locationSearch, zipCode, country } = req.query; // Updated to locationSearch
+
     const filter = {};
 
-    if (!city && !state && !zipCode && !country) {
-        return res.status(400).json({ message: 'At least one location parameter (city, state, zipCode, or country) is required.' });
+    // For locationSearch, use an $or query to check both city and state
+    if (locationSearch) {
+        const regex = new RegExp(locationSearch, 'i');
+        filter.$or = [{ city: regex }, { state: regex }];
     }
-
-    // Build the filter object based on provided location parameters
-    if (city) filter.city = { $regex: new RegExp(city, 'i') };
-    if (state) filter.state = { $regex: new RegExp(state, 'i') };
+    // Zip Code and Country remain specific
     if (zipCode) filter.zipCode = { $regex: new RegExp(zipCode, 'i') };
     if (country) filter.country = { $regex: new RegExp(country, 'i') };
+
+    // If no location parameters are provided at all, maybe return an error or all rooms
+    // For now, let's assume if no locationSearch/zipCode/country, it implies a broader search
+    // If you always require *some* location info, add:
+    // if (!locationSearch && !zipCode && !country) {
+    //   return res.status(400).json({ message: 'At least one location parameter (city/region, zipCode, or country) is required.' });
+    // }
 
     const rooms = await Room.find(filter).sort({ createdAt: -1 });
     res.json(rooms);
@@ -28,16 +35,14 @@ exports.getRooms = async (req, res, next) => {
 };
 
 // Get filtered rooms for feed
-// Get filtered rooms for feed
 exports.getRoomsFiltered = async (req, res, next) => {
   try {
     const {
-      city, // New filter field
-      state, // New filter field
-      zipCode, // New filter field
-      country, // New filter field
+      locationSearch, // New combined field
+      zipCode,
+      country,
       category,
-      priceMax, // Renamed from 'price' to 'priceMax' to be consistent with frontend
+      priceMax,
       sizeMin,
       sizeMax,
       roomsMin,
@@ -48,7 +53,7 @@ exports.getRoomsFiltered = async (req, res, next) => {
       seniorFriendly,
       studentsOnly,
       shareable,
-      socialHousing, // This maps to 'Housing Cooperative' in schema
+      socialHousing,
       parking,
       elevator,
       balcony,
@@ -61,14 +66,21 @@ exports.getRoomsFiltered = async (req, res, next) => {
 
     const filter = {};
 
-    // Apply location filters
-    if (city) filter.city = { $regex: new RegExp(city, 'i') };
-    if (state) filter.state = { $regex: new RegExp(state, 'i') };
+    // Apply combined location search (city OR state)
+    if (locationSearch) {
+      const regex = new RegExp(locationSearch, 'i');
+      filter.$or = [
+          { city: regex },
+          { state: regex }
+      ];
+    }
+    // Apply specific location filters if present
     if (zipCode) filter.zipCode = { $regex: new RegExp(zipCode, 'i') };
     if (country) filter.country = { $regex: new RegExp(country, 'i') };
 
+
     if (category) filter.category = category;
-    if (priceMax) filter.price = { $lte: Number(priceMax) }; // Use priceMax
+    if (priceMax) filter.price = { $lte: Number(priceMax) };
     if (sizeMin || sizeMax) {
       filter.size = {};
       if (sizeMin) filter.size.$gte = Number(sizeMin);
@@ -86,7 +98,7 @@ exports.getRoomsFiltered = async (req, res, next) => {
     if (seniorFriendly === 'true') filter.seniorFriendly = true;
     if (studentsOnly === 'true') filter.studentsOnly = true;
     if (shareable === 'true') filter.shareable = true;
-    if (socialHousing === 'true') filter.category = 'Housing Cooperative'; // Example mapping
+    if (socialHousing === 'true') filter.category = 'Housing Cooperative';
     // Facilities
     if (parking === 'true') filter.parking = true;
     if (elevator === 'true') filter.elevator = true;
@@ -108,9 +120,8 @@ exports.getRoomsFiltered = async (req, res, next) => {
 // Returns city/area suggestions based on a partial query
 exports.suggestLocations = async (req, res, next) => {
   try {
-    const { query, type } = req.query; // Added 'type' to specify which field to query
+    const { query } = req.query; // Only query is needed now
 
-    // Input validation
     if (!query || typeof query !== 'string' || query.trim().length < 2) {
       return res.status(400).json({
         success: false,
@@ -119,35 +130,39 @@ exports.suggestLocations = async (req, res, next) => {
     }
 
     const sanitizedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-    let fieldToSearch = 'city'; // Default to city
-    if (type === 'state') fieldToSearch = 'state';
-    if (type === 'zipCode') fieldToSearch = 'zipCode';
-    if (type === 'country') fieldToSearch = 'country';
-
+    const regex = new RegExp(`^${sanitizedQuery}`, 'i');
 
     const suggestions = await Room.aggregate([
       {
         $match: {
-          [fieldToSearch]: {
-            $regex: `^${sanitizedQuery}`, // Starts with query (case-insensitive)
-            $options: 'i'
-          }
+          $or: [
+            { city: regex },
+            { state: regex }
+            // Add zipCode if you want it included in the 'general' suggestion box
+            // { zipCode: regex }
+          ]
         }
       },
       {
         $group: {
-          _id: { $toLower: `$${fieldToSearch}` }, // Case-insensitive grouping by the selected field
-          location: { $first: `$${fieldToSearch}` } // Keep original case for display
+          _id: { $toLower: { $concat: ["$city", ", ", "$state"] } }, // Group by city, state combination
+          city: { $first: "$city" },
+          state: { $first: "$state" }
         }
       },
-      { $sort: { _id: 1 } }, // Sort alphabetically
+      { $sort: { _id: 1 } },
       { $limit: 10 },
       {
         $project: {
           _id: 0,
-          name: '$location',
-          value: '$_id'
+          name: {
+            $cond: {
+              if: "$state", // If state exists, show City, State
+              then: { $concat: ["$city", ", ", "$state"] },
+              else: "$city" // Otherwise, just show City
+            }
+          },
+          value: "$_id" // Use the grouped _id as value
         }
       }
     ]);
