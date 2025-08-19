@@ -247,7 +247,7 @@ exports.getRoomById = async (req, res, next) => {
     let currentUser = null; // To fetch user details for paywall check
 
     if (isAuthenticated) {
-      currentUser = await User.findById(userId).select('isPaid paidUntil freeQuotaUsed');
+      currentUser = await User.findById(userId).select('isPaid paidUntil');
     }
 
     const isPaidUser = currentUser && currentUser.isPaid && currentUser.paidUntil && currentUser.paidUntil > new Date();

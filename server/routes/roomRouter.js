@@ -38,7 +38,8 @@ router.get('/:id', (req, res, next) => {
     req.user = null;
   }
   // Apply the browsing limit (only if req.user is present)
-  checkBrowsingLimit(req, res, next);
+  // checkBrowsingLimit(req, res, next);
+  next();
 }, getRoomById);
 
 
