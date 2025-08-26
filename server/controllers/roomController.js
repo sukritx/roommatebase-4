@@ -185,37 +185,38 @@ exports.getRoomById = async (req, res, next) => {
   try {
     const roomId = req.params.id;
 
+    // 1. Validate Room ID format
     if (!mongoose.Types.ObjectId.isValid(roomId)) {
-      return next(new ErrorHandler(400, 'Invalid room ID format')); // Use ErrorHandler
+      return next(new ErrorHandler(400, 'Invalid room ID format'));
     }
 
-    // Increment view count (using findOneAndUpdate for atomic increment)
-    // This will happen regardless of auth status or payment, which is fine for view tracking.
+    // 2. Increment View Count (for tracking, not for paywall)
+    // This happens regardless of authentication or payment status.
     await Room.findOneAndUpdate(
       { _id: roomId },
       { $inc: { viewCount: 1 } },
-      { new: false } // We don't need the updated document here
+      { new: false } // We don't need the updated document back here
     );
 
-    // Get room with populated data. We populate partyApplications here
-    // because the backend might use it for internal logic/landlord views.
-    // We will strip it out for anonymous users later.
+    // 3. Fetch Room Details with Populated Data
+    // Populate 'owner' to get necessary user details (paid status, socialMedia for phone)
+    // Populate 'partyApplications' for party-related logic/counts.
     const room = await Room.findById(roomId)
       .populate({
         path: 'owner',
-        select: 'firstName lastName profilePicture email updatedAt listedRooms userType isPaid paidUntil socialMedia', // Added socialMedia to owner for phone number
+        // Select necessary fields for owner: name, picture, email, paid status, socialMedia (for phone)
+        select: 'firstName lastName profilePicture email updatedAt listedRooms userType isPaid paidUntil socialMedia',
         transform: (doc) => {
           if (!doc) return null;
           return {
             _id: doc._id,
-            name: `${doc.firstName || ''} ${doc.lastName || ''}`.trim() || doc.username || 'Anonymous', // Use username as fallback
+            name: `${doc.firstName || ''} ${doc.lastName || ''}`.trim() || doc.username || 'Anonymous', // Use username as fallback name
             email: doc.email,
             profilePicture: doc.profilePicture || '',
             lastActive: doc.updatedAt,
             totalListings: doc.listedRooms?.length || 0,
             userType: doc.userType,
-            // Include landlord contact options here for use below IF OWNER IS PAID
-            socialMedia: doc.socialMedia,
+            socialMedia: doc.socialMedia, // Include full socialMedia array to find phoneNumber
             isPaid: doc.isPaid,
             paidUntil: doc.paidUntil
           };
@@ -223,132 +224,135 @@ exports.getRoomById = async (req, res, next) => {
       })
       .populate('partyApplications'); // Populate this to count parties for authenticated users.
 
+    // 4. Handle Room Not Found
     if (!room) {
       return next(new ErrorHandler(404, 'Room not found'));
     }
 
-    // Convert to plain object to modify the response
+    // Convert to plain JavaScript object to allow modification
     const roomObj = room.toObject();
 
-    // Get 3 other rooms from the same city for recommendations
+    // 5. Fetch Related Rooms (from the same city, excluding current room)
     const relatedRooms = await Room.find({
-      _id: { $ne: roomId },
-      city: room.city, // Use city for related rooms
-      status: 'Available'
+      _id: { $ne: roomId }, // Not the current room
+      city: room.city,     // Same city
+      status: 'Available'  // Only available rooms
     })
-    .limit(3)
-    .select('title price images city size rooms category currency') // Add currency
-    .lean();
+    .limit(3) // Get up to 3
+    .select('title price images city size rooms category currency') // Select minimal fields for recommendations
+    .lean(); // Return plain JS objects for performance
 
-
-    // --- Core Logic for Anonymous vs. Authenticated/Paid Access ---
-    const isAuthenticated = !!req.user;
+    // 6. Determine User's Authentication and Payment Status
+    const isAuthenticated = !!req.user; // true if req.user is set by authentication middleware
     const userId = req.user?._id;
-    let currentUser = null; // To fetch user details for paywall check
+    let currentUser = null;
 
     if (isAuthenticated) {
+      // Fetch user's paid status from DB if authenticated. Removed `freeQuotaUsed`.
       currentUser = await User.findById(userId).select('isPaid paidUntil');
     }
 
+    // Check if the current user is a paid subscriber or the owner of this room
     const isPaidUser = currentUser && currentUser.isPaid && currentUser.paidUntil && currentUser.paidUntil > new Date();
-    const isRoomOwner = isAuthenticated && room.owner._id.toString() === userId.toString();
+    const isRoomOwner = isAuthenticated && room.owner?._id?.toString() === userId?.toString();
 
-    // Sanitize partyApplications based on user status
+
+    // 7. Sanitize Party Application Data for Anonymous Users
+    // For anonymous users, we do not want to send sensitive party application details.
     if (!isAuthenticated) {
-        // For ANONYMOUS users, do NOT send party applications data
-        roomObj.partyApplications = []; // Send empty array
-        roomObj.shareable = false; // Disable shareable for anonymous to hide "join party" button
+        roomObj.partyApplications = []; // Send an empty array
+        roomObj.shareable = false; // Disable shareable to hide "join party" button on frontend
     }
-    // For authenticated but unpaid users, you might still want to show party count
-    // but not full party details or "join" button unless they pay for that feature.
-    // The frontend handleJoinPartyClick already checks for isAuthenticated and user.isPaid for join.
 
 
-    // Build the response object dynamically
+    // 8. Construct the Response Object
     const response = {
-      ...roomObj,
-      relatedRooms,
-      isFavorite: isAuthenticated && (await User.findById(userId).select('favoriteRooms'))?.favoriteRooms?.includes(roomId) || false, // Check favorite status
-      canContact: isAuthenticated, // Assume any logged-in user can initiate contact
+      ...roomObj, // Start with all room fields
+      relatedRooms, // Add related rooms
+      // Determine favorite status (only if authenticated)
+      isFavorite: isAuthenticated && (await User.findById(userId).select('favoriteRooms'))?.favoriteRooms?.includes(roomId) || false,
+      canContact: isAuthenticated, // Frontend can show "Contact Landlord" button if logged in
       canJoinParty: isAuthenticated && room.shareable, // Can join party if logged in and room is shareable
 
-      // Determine contact info visibility
+      // Contact Information Object (for landlord contact details)
       contactInfo: {
         phone: null,
-        canCallDirectly: false,
+        canCallDirectly: false, // Flag for if the direct call option is available
       },
-      // If user is paid, or is the room owner, display the phone number
-      // Assuming landlord's phone number is on the owner's socialMedia array
-      // or directly on room.contactOptions.phoneNumber
-      contactOptionDisplayed: false, // Flag to tell frontend if contact info is shown
+      contactOptionDisplayed: false, // Flag for frontend: whether contact info is visible to current user
     };
 
+    // 9. Logic for Displaying Landlord Contact Information
     if (isAuthenticated) {
-        // For authenticated users:
-        response.canContact = true;
-        response.canJoinParty = room.shareable;
+        response.canContact = true; // Button to contact is visible
+        response.canJoinParty = room.shareable; // Button to join party is visible
 
-        // Paid users or room owners can see phone number
+        // Only paid users or the room owner can see the phone number
         if (isPaidUser || isRoomOwner) {
-            response.contactInfo.phone = room.contactOptions?.phoneNumber || room.owner?.socialMedia?.[0]?.phoneNumber || null;
-            response.contactInfo.canCallDirectly = room.contactOptions?.byPhone || false;
+            // Robustly find the phone number from the owner's socialMedia array or room's contactOptions
+            const ownerPhoneNumberFromSocialMedia = room.owner?.socialMedia?.find(
+                (item) => item.phoneNumber && item.phoneNumber !== ""
+            )?.phoneNumber;
+
+            response.contactInfo.phone = room.contactOptions?.phoneNumber || ownerPhoneNumberFromSocialMedia || null;
+            response.contactInfo.canCallDirectly = room.contactOptions?.byPhone || false; // Based on room's setting
+
             if (response.contactInfo.phone) {
-                response.contactOptionDisplayed = true;
+                response.contactOptionDisplayed = true; // Signal frontend to display the phone number
             }
         }
     } else {
-        // For ANONYMOUS users
+        // For ANONYMOUS users (not logged in at all)
         response.isFavorite = false;
-        response.canContact = false;
+        response.canContact = false; // Cannot initiate contact
         response.canJoinParty = false;
-        // Explicitly remove party data from response for anonymous
-        response.partyApplications = [];
-        response.shareable = false; // Frontend should read this flag
+        response.partyApplications = []; // Ensure no party data for anonymous
+        response.shareable = false;
 
-        response.authRequired = { // Frontend can use this to show "Login to X" messages
-            forContact: true,
+        // Flags for frontend to indicate what features require authentication
+        response.authRequired = {
+            forContact: true, // Login required to see contact info
             forParties: true,
             forFavorites: true,
-            forDetailedParties: true // For full party details beyond count
+            forDetailedParties: true
         };
     }
 
-
-    // Frontend metadata for display (e.g., how many views)
+    // 10. Add Frontend Metadata (e.g., view count)
     response.metadata = {
       createdAt: room.createdAt,
       lastUpdated: room.lastUpdated,
-      viewCount: (room.viewCount || 0) // Already incremented above, no +1 needed here
+      viewCount: (room.viewCount || 0) // Already incremented above
     };
 
-    // Clean up sensitive or unnecessary data before sending
+    // 11. Clean Up Sensitive or Unnecessary Data Before Sending
     delete response.__v;
-    delete response.singleTenantApplications; // Usually not sent to frontend
+    delete response.singleTenantApplications; // Not typically sent to frontend
 
-    // IMPORTANT: If `partyApplications` contains full Party objects from `.populate`,
-    // you might want to simplify it to just `partyApplicationsCount` for authenticated non-paid users.
-    // For now, if populated, it will send full objects, which might be okay for party page,
-    // but on room detail, only count should be displayed to control access.
-    // If room.partyApplications are indeed populated Party documents, then for authenticated, non-paid:
+    // 12. Simplify Party Applications for Non-Paid/Non-Owner Authenticated Users
+    // If partyApplications were populated but user is not paid/owner, simplify them
+    // to prevent full details being exposed, just keeping a count or basic info.
     if (response.partyApplications && Array.isArray(response.partyApplications) && !isPaidUser && !isRoomOwner) {
-        // Remove ': any' from the parameter type annotation
         response.partyApplications = response.partyApplications.map((party) => ({
             _id: party._id,
             title: party.title,
             maxMembers: party.maxMembers,
             membersCount: party.members ? party.members.length : 0,
-            status: party.status
+            status: party.status // Include basic status if useful
         }));
     }
 
-
+    // 13. Send the Final Response
     res.json(response);
+
   } catch (err) {
     console.error('Error fetching room by ID:', err);
+    // Handle CastError specifically (e.g., if ID is not a valid ObjectId)
     if (err.name === 'CastError') {
       return next(new ErrorHandler(400, 'Invalid room ID format'));
     }
-    next(err); // Pass any other errors to central error handler
+    // Pass any other errors to the central error handler middleware
+    next(err);
   }
 };
 
