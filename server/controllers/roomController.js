@@ -201,8 +201,8 @@ exports.getRoomById = async (req, res, next) => {
     const room = await Room.findById(roomId)
       .populate({
         path: 'owner',
-        // Select 'contact' field instead of 'socialMedia'
-        select: 'firstName lastName profilePicture email updatedAt listedRooms userType isPaid paidUntil contact', // CHANGED: from socialMedia to contact
+        // ADD isVerifyLandlord, createdAt, and ensure listedRooms is available for length
+        select: 'firstName lastName profilePicture email updatedAt listedRooms userType isPaid paidUntil contact isVerifyLandlord createdAt', // MODIFIED SELECT
         transform: (doc) => {
           if (!doc) return null;
           return {
@@ -211,11 +211,13 @@ exports.getRoomById = async (req, res, next) => {
             email: doc.email,
             profilePicture: doc.profilePicture || '',
             lastActive: doc.updatedAt,
-            totalListings: doc.listedRooms?.length || 0,
+            totalListings: doc.listedRooms?.length || 0, // This is good, uses the populated array's length
             userType: doc.userType,
-            contact: doc.contact, // CHANGED: from socialMedia to contact
+            contact: doc.contact,
             isPaid: doc.isPaid,
-            paidUntil: doc.paidUntil
+            paidUntil: doc.paidUntil,
+            isVerifyLandlord: doc.isVerifyLandlord, // ADDED
+            createdAt: doc.createdAt, // ADDED (from timestamps)
           };
         }
       })
