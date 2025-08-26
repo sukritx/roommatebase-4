@@ -107,12 +107,12 @@ exports.updatePreferences = async (req, res, next) => {
   }
 };
 
-exports.updateSocialMedia = async (req, res, next) => {
+exports.updateContact = async (req, res, next) => { // This function likely needs to be renamed or re-purposed
   try {
     const userId = req.user._id;
     const { facebook, instagram, twitter, whatsapp, phoneNumber } = req.body;
 
-    const socialMedia = {
+    const contactInfo = { // Renamed from socialMedia to contactInfo to match model
       facebook: facebook || '',
       instagram: instagram || '',
       twitter: twitter || '',
@@ -121,14 +121,14 @@ exports.updateSocialMedia = async (req, res, next) => {
     };
 
     const user = await User.findByIdAndUpdate(userId, {
-      socialMedia: [socialMedia] // Replace existing array or add to it
+      contact: [contactInfo] // CHANGED: from socialMedia to contact
     }, { new: true, runValidators: true }).select('-password');
 
     if (!user) {
       return next(new ErrorHandler(404, 'User not found'));
     }
 
-    res.json({ success: true, message: 'Social media updated successfully', socialMedia: user.socialMedia[0] });
+    res.json({ success: true, message: 'Contact information updated successfully', contact: user.contact[0] }); // CHANGED
   } catch (err) {
     next(err);
   }
@@ -175,7 +175,7 @@ exports.getDashboardStats = async (req, res, next) => {
       listedRoomsCount: user.listedRooms ? user.listedRooms.length : 0,
       isPaid: user.isPaid,
       paidUntil: user.paidUntil,
-      freeQuotaUsed: user.freeQuotaUsed,
+      freeQuotaUsed: user.freeQuotaUsed, // You might want to remove this if free quota is completely gone
       userType: user.userType,
       isRoomOwner: user.isRoomOwner,
     };

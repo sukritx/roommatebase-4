@@ -4,7 +4,7 @@ const auth = require('../middleware/auth');
 const { 
   updateProfile, 
   updatePreferences, 
-  updateSocialMedia,
+  updateContact,
   deleteAccount,
   getDashboardStats // Example
 } = require('../controllers/userController'); // Assuming these methods exist
@@ -14,7 +14,7 @@ router.use(auth.verifyToken);
 
 router.put('/profile', updateProfile);
 router.put('/preferences', updatePreferences);
-router.put('/social-media', updateSocialMedia);
+router.put('/social-media', updateContact);
 router.delete('/account', deleteAccount);
 router.get('/dashboard-stats', getDashboardStats); // Example
 

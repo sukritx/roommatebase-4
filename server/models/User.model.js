@@ -24,7 +24,7 @@ const UserSchema = new mongoose.Schema({
   listedRooms: [{ type: Schema.Types.ObjectId, ref: "Room" }],
   favoriteRooms: [{ type: Schema.Types.ObjectId, ref: "Room" }],
   joinedParties: { type: Schema.Types.ObjectId, ref: "Party" },
-  socialMedia: [{
+  contact: [{
     facebook: { type: String, default: "" },
     instagram: { type: String, default: "" },
     twitter: { type: String, default: "" },
