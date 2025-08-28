@@ -87,6 +87,8 @@ interface Room {
   maxPartyMembers?: number; // From Room schema
 }
 
+const DESCRIPTION_MAX_LENGTH = 300;
+
 export default function RoomDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [room, setRoom] = useState<Room | null>(null);
@@ -97,6 +99,10 @@ export default function RoomDetailPage() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [modalContent, setModalContent] = useState({ title: '', message: '', type: '' });
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+    // State for description truncation
+  const [showFullDescription, setShowFullDescription] = useState(false);
+
 
   // Memoize fetchRoom to ensure its reference is stable unless its own dependencies change
   const fetchRoom = useCallback(async () => {
@@ -257,6 +263,11 @@ export default function RoomDetailPage() {
     );
   }
 
+  const isDescriptionLong = room.description.length > DESCRIPTION_MAX_LENGTH;
+  const displayDescription = showFullDescription || !isDescriptionLong
+    ? room.description
+    : `${room.description.substring(0, DESCRIPTION_MAX_LENGTH)}...`;
+
   // Main Room Display
   return (
     <section className="py-8 md:py-10">
@@ -310,7 +321,19 @@ export default function RoomDetailPage() {
             <h4 className="font-bold text-large">Description</h4>
           </CardHeader>
           <CardBody className="overflow-visible py-2">
-            <p>{room.description}</p>
+            <p>
+              {displayDescription}
+              {isDescriptionLong && (
+                <Button
+                  size="sm"
+                  variant="light"
+                  className="ml-2 p-0 h-auto min-w-0"
+                  onPress={() => setShowFullDescription(!showFullDescription)}
+                >
+                  {showFullDescription ? "Show less" : "Read more"}
+                </Button>
+              )}
+            </p>
           </CardBody>
         </Card>
         <Spacer y={4} />
