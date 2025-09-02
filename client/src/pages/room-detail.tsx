@@ -333,7 +333,7 @@ export default function RoomDetailPage() {
 
         <div className="flex justify-between items-start">
           <div>
-            <h1 className={title({ size: "lg" })}>{room.title}</h1>
+            <h1 className={title({ size: "md" })}>{room.title}</h1>
             <p className={subtitle({ class: "mt-2" })}>
               {room.streetAddress}{room.apartmentDetails ? `, ${room.apartmentDetails}` : ''}, {room.city}, {room.country}
             </p>
@@ -346,9 +346,12 @@ export default function RoomDetailPage() {
           </div>
           <div className="flex flex-col items-end gap-1">
             <span className={title({ size: "sm" })}>
-              {room.currency} {room.price.toLocaleString()}
+              {room.price.toLocaleString()}
+              <span className="text-xs ml-1"> {/* A new, nested span for the currency symbol */}
+                {room.currency}
+              </span>
             </span>
-            <span className="text-default-500">/month</span>
+            <span className="text-default-500 text-sm">/month</span>
             <Button
               variant="flat"
               color={room.isFavorite ? "danger" : "default"}
