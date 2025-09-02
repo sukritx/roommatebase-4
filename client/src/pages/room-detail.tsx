@@ -11,6 +11,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from '@heroui/modal'; // For paywall modal
 import { Link } from '@heroui/link'; // For links in modals
 
+// Import Swiper React components
+import { Swiper, SwiperSlide } from 'swiper/react';
+
+// Import Swiper styles
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
+
+// Import required modules
+import { Navigation, Pagination, A11y } from 'swiper/modules';
+
 // Updated Room Interface to match schema more closely and include backend response flags
 interface Room {
   _id: string;
@@ -51,6 +62,7 @@ interface Room {
   electricChargingStation: boolean;
   dryer: boolean;
   energyRating?: string;
+  category: string;
 
   owner: {
     _id: string;
@@ -292,13 +304,26 @@ export default function RoomDetailPage() {
       <div className="max-w-4xl mx-auto">
         {/* Main Room Image/Gallery */}
         {room.images && room.images.length > 0 ? (
-          <Image
-            src={room.images[0]}
-            alt={room.title}
-            width={800}
-            height={500}
-            className="rounded-lg shadow-lg object-cover w-full h-auto max-h-[500px]"
-          />
+          <Swiper
+            modules={[Navigation, Pagination, A11y]}
+            spaceBetween={10}
+            slidesPerView={1}
+            navigation
+            pagination={{ clickable: true }}
+            className="rounded-lg shadow-lg w-full h-auto max-h-[500px]"
+          >
+            {room.images.map((imageUrl, index) => (
+              <SwiperSlide key={index}>
+                <Image
+                  src={imageUrl}
+                  alt={`${room.title} image ${index + 1}`}
+                  width={1000}
+                  height={500}
+                  className="w-full object-cover h-[400px] md:h-[500px] rounded-lg"
+                />
+              </SwiperSlide>
+            ))}
+          </Swiper>
         ) : (
           <div className="w-full h-[300px] bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center text-gray-500">
             No Image Available
