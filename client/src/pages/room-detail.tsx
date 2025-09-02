@@ -429,7 +429,7 @@ export default function RoomDetailPage() {
 
         {/* Related Rooms Section */}
         <div>
-          <h2 className={title({ size: "md" })}>More Homes in {room.city}</h2>
+          <h2 className={title({ size: "md" })}>More in {room.city}</h2>
           <Spacer y={4} />
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {room.relatedRooms.map((r) => (
