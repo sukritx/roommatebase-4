@@ -47,7 +47,7 @@ const RoomSchema = new mongoose.Schema({
       required: true 
   },
   availableDate: { type: Date }, // Used when "Specific Date" is selected
-  price: { type: Number, required: true },
+  price: { type: Number, required: true }, // Price per month
   utilities: { type: Number, default: 0 }, // Additional utility costs
   deposit: { type: Number, required: true },
   prepaidRent: { type: Number, required: true },
