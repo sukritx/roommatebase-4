@@ -207,6 +207,18 @@ const BrowseRoomsPage: React.FC = () => {
     navigate(`/rooms/${roomId}`);
   }, [navigate]);
 
+  // Use useMemo to create a number formatter. This prevents recreating it on every render.
+  // You can specify the locale and formatting options here.
+  // 'en-US' is a common locale for thousands separators.
+  // You might want to get the locale dynamically if your app supports multiple languages.
+  const priceFormatter = useMemo(() => {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 0, // No decimal places for whole numbers
+      maximumFractionDigits: 0, // No decimal places
+      useGrouping: true, // This enables the thousands separator
+    });
+  }, []); // Empty dependency array means it's created once
+
   return (
     <div className="container mx-auto px-4 py-8">
       {!isDesktop && (
@@ -287,7 +299,8 @@ const BrowseRoomsPage: React.FC = () => {
                   </p>
                   <div className="flex justify-between items-center w-full mt-2">
                     <p className="text-lg font-semibold">
-                      {room.price} {room.currency}
+                      {/* Apply the price formatter here */}
+                      {priceFormatter.format(room.price)} {room.currency}
                     </p>
                   </div>
                 </CardFooter>
