@@ -89,6 +89,24 @@ interface Room {
 
 const DESCRIPTION_MAX_LENGTH = 300;
 
+// Helper function to format date
+const formatPostDate = (dateString: string): string => {
+  const postDate = new Date(dateString);
+  const now = new Date();
+  const diffHours = Math.floor((now.getTime() - postDate.getTime()) / (1000 * 60 * 60));
+
+  if (diffHours < 24) {
+    if (diffHours === 0) {
+      const diffMinutes = Math.floor((now.getTime() - postDate.getTime()) / (1000 * 60));
+      return diffMinutes === 0 ? "just now" : `${diffMinutes} minutes ago`;
+    }
+    return `${diffHours} hours ago`;
+  } else {
+    // Format to a more readable date, e.g., "Jan 1, 2024" or "01/01/2024"
+    return postDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+};
+
 export default function RoomDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [room, setRoom] = useState<Room | null>(null);
@@ -294,6 +312,12 @@ export default function RoomDetailPage() {
             <p className={subtitle({ class: "mt-2" })}>
               {room.streetAddress}{room.apartmentDetails ? `, ${room.apartmentDetails}` : ''}, {room.city}, {room.country}
             </p>
+            {/* Displaying when the room was posted */}
+            {room.metadata.createdAt && (
+              <p className="text-sm text-default-500 mt-1">
+                Posted: {formatPostDate(room.metadata.createdAt)}
+              </p>
+            )}
           </div>
           <div className="flex flex-col items-end gap-1">
             <span className={title({ size: "sm" })}>
