@@ -1,3 +1,59 @@
 @import "tailwindcss";
 
-@config "../../tailwind.config.js"
+@config "../../tailwind.config.js";
+
+/* Custom Swiper Styles */
+.swiper {
+  /* Default arrow/pagination color for the icon/dot itself */
+  --swiper-navigation-color: theme('colors.black'); /* Black arrow icon */
+  --swiper-pagination-color: theme('colors.black'); /* Black active pagination dot */
+
+  /* Optional: Adjust size if needed */
+  --swiper-navigation-size: 24px; /* Adjust arrow icon size if default is too large/small */
+
+  /* Optional: Adjust positioning */
+  --swiper-navigation-sides-offset: 20px;
+  --swiper-pagination-bottom: 20px;
+  --swiper-pagination-bullet-inactive-color: theme('colors.gray.400');
+  --swiper-pagination-bullet-inactive-opacity: 0.7;
+}
+
+/* Style for the navigation buttons (the actual circular background) */
+.swiper-button-next,
+.swiper-button-prev {
+  @apply bg-white rounded-full flex items-center justify-center shadow-md; /* White circular background */
+  width: 44px;  /* Set a fixed width for the circle */
+  height: 44px; /* Set a fixed height for the circle */
+  /* Ensure the black arrow icon is centered */
+  top: var(--swiper-navigation-top-offset, 50%); /* Use Swiper's default top offset */
+  transform: translateY(-50%); /* Center vertically */
+}
+
+/* Optional: Adjust hover/active states for the buttons */
+.swiper-button-next:hover,
+.swiper-button-prev:hover {
+  @apply bg-gray-100; /* Slightly darker on hover */
+}
+
+/* For pagination dots, make them white with a black border when inactive if desired */
+/* And adjust active dot color if you want it different from the arrow */
+.swiper-pagination-bullet {
+  @apply bg-white; /* Make all dots white by default */
+  border: 1px solid theme('colors.gray.400'); /* Add a light gray border for inactive dots */
+  opacity: 0.8; /* Make inactive dots slightly transparent */
+}
+
+.swiper-pagination-bullet-active {
+  @apply bg-black; /* Make the active dot black */
+  border-color: theme('colors.black'); /* Match border to active color */
+  opacity: 1; /* Full opacity for active dot */
+}
+
+/*
+  HeroUI specific styling (example - if you have any global overrides for HeroUI)
+  @layer base {
+    h1 {
+      @apply text-4xl;
+    }
+  }
+*/
