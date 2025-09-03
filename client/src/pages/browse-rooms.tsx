@@ -159,13 +159,29 @@ const BrowseRoomsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []); // This useCallback doesn't depend on appliedFilters, it gets passed as an arg
+  }, []);
 
 
   // Effect to trigger room fetch whenever appliedFilters change
   useEffect(() => {
+    // Get the current search parameters from the URL
+    const currentUrlSearchParams = Object.fromEntries(searchParams.entries());
+
+    // This condition prevents an initial 'empty' fetch that can occur due to StrictMode
+    // double-rendering, especially when the URL *does* contain parameters that are
+    // about to be processed into appliedFilters.
+    // If appliedFilters.locationSearch is empty, but there are actual search params in the URL,
+    // it implies that `appliedFilters` is temporarily in its default state before
+    // the actual URL parameters are fully propagated. In this case, we skip the fetch.
+    if (
+        !appliedFilters.locationSearch && // Check if locationSearch in appliedFilters is empty
+        Object.keys(currentUrlSearchParams).length > 0 // Check if the URL actually has search parameters
+    ) {
+        return; // Skip fetch under this specific condition
+    }
+
     fetchRooms(appliedFilters);
-  }, [appliedFilters, fetchRooms]); // Now this is the primary trigger for fetching
+  }, [appliedFilters, fetchRooms, searchParams]); // Added searchParams to dependencies for the new logic
 
 
   // Handle filter input changes - only updates draft filters
