@@ -14,7 +14,7 @@ exports.getRooms = async (req, res, next) => {
     // For locationSearch, use an $or query to check both city and state
     if (locationSearch) {
         const regex = new RegExp(locationSearch, 'i');
-        filter.$or = [{ city: regex }, { state: regex }];
+        filter.$or = [{ city: regex }, { state: regex }, { country: regex }];
     }
     // Zip Code and Country remain specific
     if (zipCode) filter.zipCode = { $regex: new RegExp(zipCode, 'i') };
