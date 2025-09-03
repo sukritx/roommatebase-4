@@ -1,15 +1,15 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import DefaultLayout from '@/layouts/default';
 import { title, subtitle } from '@/components/primitives';
-import { Image } from '@heroui/image'; // Assuming HeroUI Image component
-import { Card, CardHeader, CardBody, CardFooter } from '@heroui/card'; // Assuming HeroUI Card components
+import { Image } from '@heroui/image';
+import { Card, CardHeader, CardBody, CardFooter } from '@heroui/card';
 import { Button } from '@heroui/button';
-import { Spacer } from '@heroui/spacer'; // For spacing
+import { Spacer } from '@heroui/spacer';
 import { useAuth } from '@/contexts/AuthContext';
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from '@heroui/modal'; // For paywall modal
-import { Link } from '@heroui/link'; // For links in modals
+import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from '@heroui/modal';
+import { Link } from '@heroui/link';
 
 // Import Swiper React components
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -19,10 +19,10 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 
-// Import required modules
+// Import required modules for Swiper
 import { Navigation, Pagination, A11y } from 'swiper/modules';
 
-// Updated Room Interface to match schema more closely and include backend response flags
+// Define your Room interface to match the backend response and frontend needs
 interface Room {
   _id: string;
   title: string;
@@ -42,13 +42,14 @@ interface Room {
   bathrooms: number;
   floor?: number;
   furnished: boolean;
-  shareable: boolean; // Will be false for anonymous users from backend
+  shareable: boolean;
   rentalPeriod: string;
   availableFrom: string;
-  availableDate?: string; // Date string
+  availableDate?: string; // Date string (e.g., ISO 8601 from backend)
   deposit: number;
   prepaidRent: number;
   utilities: number;
+  category: string; // Ensure category is here
 
   // Lifestyle & Facilities
   petsAllowed: boolean;
@@ -62,7 +63,6 @@ interface Room {
   electricChargingStation: boolean;
   dryer: boolean;
   energyRating?: string;
-  category: string;
 
   owner: {
     _id: string;
@@ -74,11 +74,11 @@ interface Room {
   relatedRooms: Room[];
 
   // Flags from backend's getRoomById response (for frontend logic)
-  canContact: boolean; // Based on isAuthenticated
-  canJoinParty: boolean; // Based on isAuthenticated && room.shareable
-  isFavorite: boolean; // Based on isAuthenticated
-  contactOptionDisplayed: boolean; // True if phone number is available/visible
-  authRequired?: { // Provided for anonymous users
+  canContact: boolean;
+  canJoinParty: boolean;
+  isFavorite: boolean;
+  contactOptionDisplayed: boolean;
+  authRequired?: {
     forContact?: boolean;
     forParties?: boolean;
     forFavorites?: boolean;
@@ -90,18 +90,16 @@ interface Room {
   };
   metadata: {
     viewCount: number;
-    createdAt: string;
-    lastUpdated: string;
+    createdAt: string; // ISO 8601 string
+    lastUpdated: string; // ISO 8601 string
   };
-  // partyApplications will be empty [] for anonymous, or simplified/populated for auth'd users
-  // depending on backend response, we mainly care about its count for display.
   partyApplications?: any[];
-  maxPartyMembers?: number; // From Room schema
+  maxPartyMembers?: number;
 }
 
 const DESCRIPTION_MAX_LENGTH = 300;
 
-// Helper function to format date
+// Helper function to format date for "Posted:"
 const formatPostDate = (dateString: string): string => {
   const postDate = new Date(dateString);
   const now = new Date();
@@ -119,7 +117,55 @@ const formatPostDate = (dateString: string): string => {
   }
 };
 
+// Helper component for a single info row (label on left, value on right)
+interface InfoRowProps {
+  label: string;
+  value: string | number | boolean | JSX.Element;
+  className?: string; // Optional class for custom styling
+}
+
+const InfoRow: React.FC<InfoRowProps> = ({ label, value, className }) => (
+  <div className={`grid grid-cols-2 gap-4 py-2 text-default-600 border-b border-gray-200 last:border-b-0 ${className}`}>
+    <p className="font-medium text-sm">{label}</p>
+    <p className="text-sm font-bold text-right">{value === true ? 'Yes' : value === false ? 'No' : value}</p>
+  </div>
+);
+
+// Helper component for a numerical info row with currency formatting
+interface NumericInfoRowProps {
+  label: string;
+  value: number;
+  currency: string;
+  formatter: Intl.NumberFormat;
+  className?: string; // Optional class for custom styling
+}
+
+const NumericInfoRow: React.FC<NumericInfoRowProps> = ({ label, value, currency, formatter, className }) => (
+  <div className={`grid grid-cols-2 gap-4 py-2 text-default-600 border-b border-gray-200 last:border-b-0 ${className}`}>
+    <p className="font-medium text-sm">{label}</p>
+    <p className="text-sm font-bold text-right">{formatter.format(value)} {currency}</p>
+  </div>
+);
+
+// Helper for ordinal suffixes (1st, 2nd, 3rd, 4th, etc.)
+function getOrdinalSuffix(i: number) {
+  const j = i % 10,
+        k = i % 100;
+  if (j === 1 && k !== 11) {
+      return "st";
+  }
+  if (j === 2 && k !== 12) {
+      return "nd";
+  }
+  if (j === 3 && k !== 13) {
+      return "rd";
+  }
+  return "th";
+}
+
+
 export default function RoomDetailPage() {
+  // --- STATE HOOKS (MUST BE AT THE TOP) ---
   const { id } = useParams<{ id: string }>();
   const [room, setRoom] = useState<Room | null>(null);
   const [loading, setLoading] = useState(true);
@@ -128,13 +174,21 @@ export default function RoomDetailPage() {
   const navigate = useNavigate();
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
   const [modalContent, setModalContent] = useState({ title: '', message: '', type: '' });
+  const [showFullDescription, setShowFullDescription] = useState(false); // State for description truncation
+
+  // --- MEMOIZED VALUES AND CALLBACKS (MUST BE AT THE TOP) ---
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-    // State for description truncation
-  const [showFullDescription, setShowFullDescription] = useState(false);
+  // Memoized price formatter for consistent number formatting
+  const priceFormatter = useMemo(() => {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+      useGrouping: true,
+    });
+  }, []);
 
-
-  // Memoize fetchRoom to ensure its reference is stable unless its own dependencies change
+  // Memoize fetchRoom for stable reference across renders
   const fetchRoom = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -153,14 +207,14 @@ export default function RoomDetailPage() {
           message: err.response.data.message || 'You have reached your free browsing limit. Please upgrade to continue viewing rooms.',
           type: 'upgrade',
         });
-        onOpen(); // Call onOpen here directly
+        onOpen();
       } else if (err.response?.status === 401 && err.response?.data?.requiresAuth) {
         setModalContent({
           title: 'Login Required',
           message: err.response.data.message || 'Please login to access this feature.',
           type: 'login',
         });
-        onOpen(); // Call onOpen here directly
+        onOpen();
       } else {
         setError(err.response?.data?.message || 'Failed to load room details.');
         console.error("Error fetching room details:", err);
@@ -168,24 +222,23 @@ export default function RoomDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [id, isAuthenticated, checkAuthStatus, API_BASE_URL, onOpen]); // onOpen stays here as fetchRoom depends on it
-  // onOpen itself is stable from useDisclosure, but fetchRoom is defined inside the component,
-  // so if it uses onOpen, onOpen MUST be in its own dependency array.
+  }, [id, isAuthenticated, checkAuthStatus, API_BASE_URL, onOpen]);
 
 
+  // Effect to trigger room data fetch on ID change
   useEffect(() => {
     if (id) {
       fetchRoom();
     }
   }, [id, fetchRoom]);
 
-  const getPartyCount = (room: Room) => {
-    // Check if shareable is true from backend for authenticated users
-    // For anonymous, backend will set shareable to false
+  // Helper to get current party count for display
+  const getPartyCount = useCallback((room: Room) => { // useCallback for this helper too
     return room.shareable && room.partyApplications ? room.partyApplications.length : 0;
-  };
+  }, []);
 
-  const handleContactClick = () => {
+  // Handler for Contact Landlord button click
+  const handleContactClick = useCallback(() => { // useCallback
     if (!isAuthenticated) {
       setModalContent({
         title: 'Login Required',
@@ -194,18 +247,15 @@ export default function RoomDetailPage() {
       });
       onOpen();
     } else if (room?.contactOptionDisplayed && room.contactInfo?.phone) {
-        // User is authenticated AND landlord's number is displayed (meaning user is paid or is owner)
-        alert(`You can call the landlord at: ${room.contactInfo.phone}`);
+      alert(`You can call the landlord at: ${room.contactInfo.phone}`);
     } else {
-        // User is authenticated but not paid, so no phone number. Direct to message feature.
-        // Assuming /messages/:ownerId is for direct messages
-        navigate(`/messages/${room?.owner._id}`); // Direct to message landlord
-        alert('Navigating to message interface.');
+      navigate(`/messages/${room?.owner._id}`);
+      alert('Navigating to message interface.');
     }
-  };
+  }, [isAuthenticated, room, navigate, onOpen]);
 
-
-  const handleJoinPartyClick = () => {
+  // Handler for Join Party button click
+  const handleJoinPartyClick = useCallback(() => { // useCallback
     if (!isAuthenticated) {
       setModalContent({
         title: 'Login Required',
@@ -213,16 +263,14 @@ export default function RoomDetailPage() {
         type: 'login',
       });
       onOpen();
-    } else if (room?.shareable) { // Only proceed if room is shareable (checked by backend for auth users)
-       // For authenticated users, parties are available.
-       // Navigate to the parties section or dedicated party page for this room.
-       alert('Navigating to party section for this room.');
-       navigate(`/rooms/${id}/parties`); // You'll need to create this route and page
+    } else if (room?.shareable) {
+      alert('Navigating to party section for this room.');
+      navigate(`/rooms/${id}/parties`);
     }
-  };
+  }, [isAuthenticated, room, navigate, id, onOpen]);
 
-
-  const handleFavoriteClick = async () => {
+  // Handler for Favorite button click
+  const handleFavoriteClick = useCallback(async () => { // useCallback
     if (!isAuthenticated) {
       setModalContent({
         title: 'Login Required',
@@ -234,30 +282,34 @@ export default function RoomDetailPage() {
     }
     try {
       if (room?.isFavorite) {
-        await axios.delete(`${API_BASE_URL}/rooms/${id}/favorite`);
+        await axios.delete(`${API_BASE_URL}/rooms/${id}/favorite`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
         setRoom(prev => prev ? { ...prev, isFavorite: false } : null);
       } else {
-        await axios.post(`${API_BASE_URL}/rooms/${id}/favorite`);
+        await axios.post(`${API_BASE_URL}/rooms/${id}/favorite`, {}, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
         setRoom(prev => prev ? { ...prev, isFavorite: true } : null);
       }
     } catch (err) {
       console.error("Failed to update favorite status", err);
       setError("Failed to update favorite status.");
     }
-  };
+  }, [isAuthenticated, room, id, API_BASE_URL, onOpen]);
 
+  // --- CONDITIONAL RENDERING FOR LOADING/ERROR STATES (AFTER ALL HOOKS) ---
   if (loading) {
     return (
       <div className="text-center py-10">Loading room details...</div>
     );
   }
 
-  // Handle case where an error occurred and no room data loaded, OR room is explicitly null
+  // Handle case where an error occurred or room data is null
   if (error || !room) {
     return (
       <DefaultLayout>
         <div className="text-center py-10 text-red-500">{error || "Room not found."}</div>
-        {/* Render modal if triggered by error (401/402) */}
         <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
           <ModalContent>
             {(onClose) => (
@@ -276,7 +328,7 @@ export default function RoomDetailPage() {
                     <Button color="primary" onPress={() => { navigate('/pricing'); onClose(); }}>
                       Upgrade Now
                     </Button>
-                  ) : ( // For 'login' type or generic errors leading to login
+                  ) : (
                     <Button color="primary" onPress={() => { navigate('/login'); onClose(); }}>
                       Login / Sign Up
                     </Button>
@@ -293,16 +345,26 @@ export default function RoomDetailPage() {
     );
   }
 
+  // --- DERIVED STATE / PRE-CALCULATIONS (AFTER ALL HOOKS, BEFORE JSX RETURN) ---
   const isDescriptionLong = room.description.length > DESCRIPTION_MAX_LENGTH;
   const displayDescription = showFullDescription || !isDescriptionLong
     ? room.description
     : `${room.description.substring(0, DESCRIPTION_MAX_LENGTH)}...`;
 
-  // Main Room Display
+  const calculatedMoveInPrice = room.price + room.deposit + room.prepaidRent;
+
+  const formattedAvailableDate = room.availableDate && room.availableFrom === 'Specific Date'
+    ? new Date(room.availableDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
+    : room.availableFrom;
+
+  const formattedCreationDate = new Date(room.metadata.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+
+  // --- MAIN COMPONENT JSX ---
   return (
     <section className="py-8 md:py-10">
       <div className="max-w-4xl mx-auto">
-        {/* Main Room Image/Gallery */}
+        {/* Main Room Image/Gallery - Swiper Carousel */}
         {room.images && room.images.length > 0 ? (
           <Swiper
             modules={[Navigation, Pagination, A11y]}
@@ -310,16 +372,16 @@ export default function RoomDetailPage() {
             slidesPerView={1}
             navigation
             pagination={{ clickable: true }}
-            className="rounded-lg shadow-lg w-full h-auto max-h-[500px]"
+            className="rounded-lg shadow-lg w-full h-auto max-h-[500px]" // `my-swiper-container` class for global styling
           >
             {room.images.map((imageUrl, index) => (
               <SwiperSlide key={index}>
                 <Image
                   src={imageUrl}
                   alt={`${room.title} image ${index + 1}`}
-                  width={1000}
-                  height={500}
-                  className="w-full object-cover h-[400px] md:h-[500px] rounded-lg"
+                  width={1000} // Increased width to match full container if needed
+                  height={500} // Set a fixed height for consistency
+                  className="w-full object-cover h-[400px] md:h-[500px] rounded-lg" // Object-cover for aspect ratio
                 />
               </SwiperSlide>
             ))}
@@ -333,7 +395,7 @@ export default function RoomDetailPage() {
 
         <div className="flex justify-between items-start">
           <div>
-            <h1 className={title({ size: "md" })}>{room.title}</h1>
+            <h1 className={title({ size: "lg" })}>{room.title}</h1>
             <p className={subtitle({ class: "mt-2" })}>
               {room.streetAddress}{room.apartmentDetails ? `, ${room.apartmentDetails}` : ''}, {room.city}, {room.country}
             </p>
@@ -345,9 +407,9 @@ export default function RoomDetailPage() {
             )}
           </div>
           <div className="flex flex-col items-end gap-1">
-            <span className={title({ size: "sm" })}>
-              {room.price.toLocaleString()}
-              <span className="text-xs ml-1"> {/* A new, nested span for the currency symbol */}
+            <span className={title({ size: "sm" })}> {/* Price number uses 'sm' title size */}
+              {priceFormatter.format(room.price)}
+              <span className="text-xs ml-1"> {/* Currency uses 'xs' text size with a margin */}
                 {room.currency}
               </span>
             </span>
@@ -356,7 +418,7 @@ export default function RoomDetailPage() {
               variant="flat"
               color={room.isFavorite ? "danger" : "default"}
               onClick={handleFavoriteClick}
-              isDisabled={!room.canContact} // Disable if anonymous, as per authRequired.forFavorites
+              isDisabled={!room.canContact && room.authRequired?.forFavorites} // Corrected disable logic
             >
               {room.isFavorite ? "Favorited" : "Add to Favorites"}
             </Button>
@@ -367,7 +429,7 @@ export default function RoomDetailPage() {
         </div>
         <Spacer y={4} />
 
-        {/* Room Info Cards */}
+        {/* Description Card */}
         <Card className="p-4">
           <CardHeader className="pb-0 pt-2 px-4 flex-col items-start">
             <h4 className="font-bold text-large">Description</h4>
@@ -390,68 +452,86 @@ export default function RoomDetailPage() {
         </Card>
         <Spacer y={4} />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="p-4">
-            <CardHeader className="pb-0 pt-2 px-4 flex-col items-start">
-              <h4 className="font-bold text-large">About Property</h4>
-            </CardHeader>
-            <CardBody className="overflow-visible py-2 text-default-600">
-              <p><strong>Category:</strong> {room.category}</p>
-              <p><strong>Size:</strong> {room.size} m²</p>
-              <p><strong>Rooms:</strong> {room.rooms}</p>
-              <p><strong>Bathrooms:</strong> {room.bathrooms}</p>
-              <p><strong>Floor:</strong> {room.floor || 'N/A'}</p>
-              <p><strong>Furnished:</strong> {room.furnished ? "Yes" : "No"}</p>
-              <p><strong>Shareable:</strong> {room.shareable ? "Yes" : "No"}</p>
-              {/* Lifestyle & Facilities */}
-              <h5 className="font-semibold text-small mt-3">Lifestyle & Facilities:</h5>
-              {room.petsAllowed && <p>• Pets Allowed</p>}
-              {room.elevator && <p>• Elevator</p>}
-              {room.seniorFriendly && <p>• Senior Friendly</p>}
-              {room.studentsOnly && <p>• Students Only</p>}
-              {room.balcony && <p>• Balcony</p>}
-              {room.parking && <p>• Parking</p>}
-              {room.dishwasher && <p>• Dishwasher</p>}
-              {room.washingMachine && <p>• Washing Machine</p>}
-              {room.electricChargingStation && <p>• Electric Charging Station</p>}
-              {room.dryer && <p>• Dryer</p>}
-              {room.energyRating && room.energyRating !== '-' && <p>• Energy Rating: {room.energyRating}</p>}
-
-            </CardBody>
-          </Card>
-
-          <Card className="p-4">
-            <CardHeader className="pb-0 pt-2 px-4 flex-col items-start">
-              <h4 className="font-bold text-large">Rental Information</h4>
-            </CardHeader>
-            <CardBody className="overflow-visible py-2 text-default-600">
-              <p><strong>Monthly Price:</strong> {room.currency} {room.price.toLocaleString()}</p>
-              <p><strong>Utilities:</strong> {room.currency} {room.utilities.toLocaleString()}</p>
-              <p><strong>Deposit:</strong> {room.currency} {room.deposit.toLocaleString()}</p>
-              <p><strong>Prepaid Rent:</strong> {room.currency} {room.prepaidRent.toLocaleString()}</p>
-              {/* Assuming calculatedMoveInPrice is available from backend or calculated on frontend */}
-              {/* <p><strong>Calculated Move-in Price:</strong> {room.currency} {room.calculatedMoveInPrice?.toLocaleString()}</p> */}
-              <p><strong>Rental Period:</strong> {room.rentalPeriod}</p>
-              <p><strong>Available From:</strong> {room.availableFrom}</p>
-              {room.availableDate && room.availableFrom === 'Specific Date' && <p> ({new Date(room.availableDate).toLocaleDateString()})</p>}
-            </CardBody>
-          </Card>
-        </div>
+        {/* PROPERTY INFORMATION CARD - Redesigned to match screenshot */}
+        <Card className="p-4">
+          <CardHeader className="pb-0 pt-2 px-4 flex-col items-start">
+            <h4 className="font-bold text-large text-primary-500 pb-2 border-b-2 border-primary-500 inline-block">
+              About property
+            </h4>
+          </CardHeader>
+          <CardBody className="overflow-visible py-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-0">
+            <div> {/* Left column content */}
+              <InfoRow label="Property type" value={room.category} />
+              <InfoRow label="Rooms" value={room.rooms} />
+              <InfoRow label="Furnished" value={room.furnished} />
+              <InfoRow label="Pets allowed" value={room.petsAllowed} />
+              <InfoRow label="Senior friendly" value={room.seniorFriendly} />
+              <InfoRow label="Balcony" value={room.balcony} />
+              <InfoRow label="Dishwasher" value={room.dishwasher} />
+              <InfoRow label="Electric charging station" value={room.electricChargingStation} />
+              <InfoRow label="Energy rating" value={room.energyRating && room.energyRating !== '-' ? room.energyRating : '-'} />
+            </div>
+            <div> {/* Right column content */}
+              <InfoRow label="Size" value={`${room.size} m²`} />
+              <InfoRow label="Floor" value={room.floor ? `${room.floor}${getOrdinalSuffix(room.floor)}` : 'N/A'} />
+              <InfoRow label="Shareable" value={room.shareable} />
+              <InfoRow label="Elevator" value={room.elevator} />
+              <InfoRow label="Students only" value={room.studentsOnly} />
+              <InfoRow label="Parking" value={room.parking} />
+              <InfoRow label="Washing machine" value={room.washingMachine} />
+              <InfoRow label="Dryer" value={room.dryer} />
+              {/* If right column is shorter, ensure it visually aligns;
+                  You might need to add empty InfoRows or adjust grid template if exact alignment for differing lengths is critical.
+                  For now, Tailwind grid will just put items in order. */}
+            </div>
+          </CardBody>
+        </Card>
         <Spacer y={4} />
+
+        {/* RENTAL INFORMATION CARD - Redesigned to match screenshot */}
+        <Card className="p-4">
+          <CardHeader className="pb-0 pt-2 px-4 flex-col items-start">
+            <h4 className="font-bold text-large text-primary-500 pb-2 border-b-2 border-primary-500 inline-block">
+              About rental
+            </h4>
+          </CardHeader>
+          <CardBody className="overflow-visible py-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-0">
+            <div> {/* Left column content */}
+              <InfoRow label="Rental period" value={room.rentalPeriod} />
+              <NumericInfoRow label="Monthly net rent" value={room.price} currency={room.currency} formatter={priceFormatter} />
+              <NumericInfoRow label="Prepaid rent" value={room.prepaidRent} currency={room.currency} formatter={priceFormatter} />
+              <InfoRow label="Creation Date" value={formattedCreationDate} />
+            </div>
+            <div> {/* Right column content */}
+              <InfoRow label="Available from" value={formattedAvailableDate} />
+              <NumericInfoRow label="Deposit" value={room.deposit} currency={room.currency} formatter={priceFormatter} />
+              <NumericInfoRow label="Move-in price" value={calculatedMoveInPrice} currency={room.currency} formatter={priceFormatter} />
+              <InfoRow label="Listing-id" value={room._id} /> {/* Using _id as a placeholder for listing ID */}
+              {/* If you want to add the "Do you need a loan?" link like in the image,
+                  you would add it here within a similar InfoRow structure. */}
+              {/* <div className="grid grid-cols-2 gap-4 py-2 text-default-600 border-b border-gray-200 last:border-b-0">
+                <div></div>
+                <div className="text-right text-sm">
+                  <Link className="text-primary-500 cursor-pointer">Do you need a loan?</Link>
+                </div>
+              </div> */}
+            </div>
+          </CardBody>
+        </Card>
+
+        <Spacer y={8} />
 
         {/* Contact and Party Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            {/* Contact Landlord Button */}
             <Button
               color="primary"
               size="lg"
               onPress={handleContactClick}
-              isDisabled={!room.canContact && !room.authRequired?.forContact} // Disable if not contactable AND not just requires login
+              isDisabled={!room.canContact && !room.authRequired?.forContact}
             >
               {room.canContact ? "Contact Landlord" : "Login to Contact"}
             </Button>
 
-            {/* Display phone number if authorized */}
             {room.contactOptionDisplayed && room.contactInfo?.phone && (
                 <div className="flex items-center gap-2">
                     <span className="text-default-600 font-semibold">Phone:</span>
@@ -462,13 +542,12 @@ export default function RoomDetailPage() {
                 <p className="text-sm text-default-400 mt-2 text-center sm:hidden">Login to see contact options</p>
             )}
 
-            {/* View / Join Party Button */}
-            {room.shareable && ( // Only show button if room is actually shareable (backend flag)
+            {room.shareable && (
                 <Button
                   color="secondary"
                   size="lg"
                   onPress={handleJoinPartyClick}
-                  isDisabled={!room.canJoinParty && !room.authRequired?.forParties} // Disable if not joinable AND not just requires login
+                  isDisabled={!room.canJoinParty && !room.authRequired?.forParties}
                 >
                   {room.canJoinParty ? `View / Join Party (${getPartyCount(room)} Parties)` : "Login to View Parties"}
                 </Button>
@@ -505,7 +584,7 @@ export default function RoomDetailPage() {
                   <b className="font-semibold">{r.title}</b>
                   <p className="text-default-500 text-sm">{r.city}, {r.country}</p>
                   <p className="text-lg font-bold mt-1">
-                    {r.currency} {r.price.toLocaleString()}
+                    {priceFormatter.format(r.price)} {r.currency}
                   </p>
                 </CardFooter>
               </Card>
@@ -532,7 +611,7 @@ export default function RoomDetailPage() {
                   <Button color="primary" onPress={() => { navigate('/pricing'); onClose(); }}>
                     Upgrade Now
                   </Button>
-                ) : ( // For 'login' type or generic errors leading to login
+                ) : (
                   <Button color="primary" onPress={() => { navigate('/login'); onClose(); }}>
                     Login / Sign Up
                   </Button>
