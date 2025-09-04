@@ -36,7 +36,6 @@ const UserSchema = new mongoose.Schema({
   isPaid: { type: Boolean, default: false },
   paidUntil: { type: Date, default: null },
   freeQuotaUsed: { type: Number, default: 0 },
-  rooms: [{ type: Schema.Types.ObjectId, ref: "Room" }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', UserSchema);
