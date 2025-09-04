@@ -70,6 +70,8 @@ interface Room {
     profilePicture?: string;
     totalListings?: number;
     userType: 'User' | 'Institution';
+    createdAt?: string;          // ADDED: For "Profile created" display
+    isVerifyLandlord?: boolean;  // ADDED: For "Verified Landlord" badge
   };
   relatedRooms: Room[];
 
@@ -116,6 +118,25 @@ const formatPostDate = (dateString: string): string => {
     return postDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   }
 };
+
+// NEW HELPER: Format profile creation date for "X months/years ago"
+const formatProfileCreationDate = (dateString: string): string => {
+  const creationDate = new Date(dateString);
+  const now = new Date();
+  const diffTime = Math.abs(now.getTime() - creationDate.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 30) {
+    return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+  } else if (diffDays < 365) {
+    const months = Math.floor(diffDays / 30);
+    return `${months} month${months !== 1 ? 's' : ''} ago`;
+  } else {
+    const years = Math.floor(diffDays / 365);
+    return `${years} year${years !== 1 ? 's' : ''} ago`;
+  }
+};
+
 
 // Helper component for a single info row (label on left, value on right)
 interface InfoRowProps {
@@ -233,12 +254,12 @@ export default function RoomDetailPage() {
   }, [id, fetchRoom]);
 
   // Helper to get current party count for display
-  const getPartyCount = useCallback((room: Room) => { // useCallback for this helper too
+  const getPartyCount = useCallback((room: Room) => {
     return room.shareable && room.partyApplications ? room.partyApplications.length : 0;
   }, []);
 
   // Handler for Contact Landlord button click
-  const handleContactClick = useCallback(() => { // useCallback
+  const handleContactClick = useCallback(() => {
     if (!isAuthenticated) {
       setModalContent({
         title: 'Login Required',
@@ -255,7 +276,7 @@ export default function RoomDetailPage() {
   }, [isAuthenticated, room, navigate, onOpen]);
 
   // Handler for Join Party button click
-  const handleJoinPartyClick = useCallback(() => { // useCallback
+  const handleJoinPartyClick = useCallback(() => {
     if (!isAuthenticated) {
       setModalContent({
         title: 'Login Required',
@@ -270,7 +291,7 @@ export default function RoomDetailPage() {
   }, [isAuthenticated, room, navigate, id, onOpen]);
 
   // Handler for Favorite button click
-  const handleFavoriteClick = useCallback(async () => { // useCallback
+  const handleFavoriteClick = useCallback(async () => {
     if (!isAuthenticated) {
       setModalContent({
         title: 'Login Required',
@@ -359,6 +380,11 @@ export default function RoomDetailPage() {
 
   const formattedCreationDate = new Date(room.metadata.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
+  // Formatting for owner's profile creation time
+  const formattedProfileCreationTime = room.owner.createdAt
+    ? formatProfileCreationDate(room.owner.createdAt)
+    : 'N/A';
+
 
   // --- MAIN COMPONENT JSX ---
   return (
@@ -418,7 +444,7 @@ export default function RoomDetailPage() {
               variant="flat"
               color={room.isFavorite ? "danger" : "default"}
               onClick={handleFavoriteClick}
-              isDisabled={!room.canContact && room.authRequired?.forFavorites} // Corrected disable logic
+              isDisabled={!room.canContact && room.authRequired?.forFavorites}
             >
               {room.isFavorite ? "Favorited" : "Add to Favorites"}
             </Button>
@@ -480,9 +506,6 @@ export default function RoomDetailPage() {
               <InfoRow label="Parking" value={room.parking} />
               <InfoRow label="Washing machine" value={room.washingMachine} />
               <InfoRow label="Dryer" value={room.dryer} />
-              {/* If right column is shorter, ensure it visually aligns;
-                  You might need to add empty InfoRows or adjust grid template if exact alignment for differing lengths is critical.
-                  For now, Tailwind grid will just put items in order. */}
             </div>
           </CardBody>
         </Card>
@@ -506,57 +529,61 @@ export default function RoomDetailPage() {
               <InfoRow label="Available from" value={formattedAvailableDate} />
               <NumericInfoRow label="Deposit" value={room.deposit} currency={room.currency} formatter={priceFormatter} />
               <NumericInfoRow label="Move-in price" value={calculatedMoveInPrice} currency={room.currency} formatter={priceFormatter} />
-              <InfoRow label="Listing-id" value={room._id} /> {/* Using _id as a placeholder for listing ID */}
-              {/* If you want to add the "Do you need a loan?" link like in the image,
-                  you would add it here within a similar InfoRow structure. */}
-              {/* <div className="grid grid-cols-2 gap-4 py-2 text-default-600 border-b border-gray-200 last:border-b-0">
-                <div></div>
-                <div className="text-right text-sm">
-                  <Link className="text-primary-500 cursor-pointer">Do you need a loan?</Link>
-                </div>
-              </div> */}
+              <InfoRow label="Listing-id" value={room._id} />
+              {/* Optional "Do you need a loan?" link */}
             </div>
           </CardBody>
         </Card>
+        <Spacer y={4} />
 
-        <Spacer y={8} />
-
-        {/* Contact and Party Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              color="primary"
-              size="lg"
-              onPress={handleContactClick}
-              isDisabled={!room.canContact && !room.authRequired?.forContact}
-            >
-              {room.canContact ? "Contact Landlord" : "Login to Contact"}
-            </Button>
-
-            {room.contactOptionDisplayed && room.contactInfo?.phone && (
-                <div className="flex items-center gap-2">
-                    <span className="text-default-600 font-semibold">Phone:</span>
-                    <span className="text-primary-600">{room.contactInfo.phone}</span>
+        {/* NEW: ABOUT LANDLORD SECTION */}
+        <Card className="p-4">
+            <CardHeader className="pb-0 pt-2 px-4 flex-col items-start">
+                <h4 className="font-bold text-large text-primary-500 pb-2 border-b-2 border-primary-500 inline-block">
+                    About landlord
+                </h4>
+            </CardHeader>
+            <CardBody className="overflow-visible py-4">
+                <div className="flex items-center gap-4 mb-4">
+                    {room.owner.profilePicture ? (
+                        <Image
+                            src={room.owner.profilePicture}
+                            alt={room.owner.name}
+                            width={64}
+                            height={64}
+                            className="rounded-full object-cover"
+                        />
+                    ) : (
+                        <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-xl font-semibold">
+                            {room.owner.name ? room.owner.name.charAt(0) : 'L'}
+                        </div>
+                    )}
+                    <div>
+                        <p className="font-bold text-lg">{room.owner.name}</p>
+                        <p className="text-default-500 text-sm">{room.owner.userType === 'Institution' ? 'Institution' : 'Private Landlord'}</p>
+                    </div>
                 </div>
-            )}
-            {!room.canContact && room.authRequired?.forContact && (
-                <p className="text-sm text-default-400 mt-2 text-center sm:hidden">Login to see contact options</p>
-            )}
-
-            {room.shareable && (
-                <Button
-                  color="secondary"
-                  size="lg"
-                  onPress={handleJoinPartyClick}
-                  isDisabled={!room.canJoinParty && !room.authRequired?.forParties}
-                >
-                  {room.canJoinParty ? `View / Join Party (${getPartyCount(room)} Parties)` : "Login to View Parties"}
-                </Button>
-            )}
-            {!room.canJoinParty && room.authRequired?.forParties && room.shareable && (
-                <p className="text-sm text-default-400 mt-2 text-center sm:hidden">Login to view/join parties</p>
-            )}
-        </div>
-        <Spacer y={8} />
+                <div className="flex flex-col gap-2 text-default-600">
+                    <p className="text-sm">
+                        <strong>Posted:</strong> {room.owner.totalListings !== undefined ? `${room.owner.totalListings} room${room.owner.totalListings !== 1 ? 's' : ''}` : 'N/A'}
+                    </p>
+                    {room.owner.createdAt && ( // Only display if createdAt exists
+                        <p className="text-sm">
+                            <strong>Profile created:</strong> {formattedProfileCreationTime}
+                        </p>
+                    )}
+                    {room.owner.isVerifyLandlord && ( // Only display if isVerifyLandlord is true
+                        <p className="text-sm text-green-600 flex items-center gap-1">
+                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                              <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.018 0 1.97.306 2.797.849a.75.75 0 01.031.89l-1.636 3.896c-.074.175-.246.322-.445.393L12 10.707V12.75h4.722c.594 0 1.134.397 1.25.962.24.966.309 1.95.19 2.915a.75.75 0 01-.692.716H12a.75.75 0 01-.75-.75V11.25a.75.75 0 00-.75-.75h-.375a.75.75 0 00-.75.75v.375c0 .093.045.18.12.235l.12.073a.75.75 0 010 1.217l-.12.073a.75.75 0 01-.12.235v1.028c0 .093-.045.18-.12.235l-.12.073a.75.75 0 010 1.217l-.12.073a.75.75 0 01-.12.235V20.25a.75.75 0 01-.75.75H8.25a.75.75 0 01-.75-.75V15.54a.75.75 0 01.031-.89l1.636-3.896c.074-.175.246-.322.445-.393L12 10.707V4.939l-2.703 6.44c-.093.22-.303.376-.554.428L8.25 11.25a.75.75 0 01-.75-.75V10.19a.75.75 0 00-.72-.741l-.865.182A4.49 4.49 0 013.75 12c0 1.018.306 1.97.849 2.797a.75.75 0 01.031.89l1.636 3.896c.074-.175.246-.322.445.393L12 21.75c1.018 0 1.97-.306 2.797-.849a.75.75 0 01.031-.89l1.636-3.896c.074-.175.246-.322.445-.393L12 17.293V14.25h4.722c.594 0 1.134.397 1.25.962.24.966.309 1.95.19 2.915a.75.75 0 01-.692.716H12a.75.75 0 01-.75-.75V14.25a.75.75 0 00-.75-.75h-.375a.75.75 0 00-.75.75v.375c0 .093.045.18.12.235l.12.073a.75.75 0 010 1.217l-.12.073a.75.75 0 01-.12.235v1.028c0 .093-.045.18-.12.235l-.12.073a.75.75 0 010 1.217l-.12.073a.75.75 0 01-.12.235V20.25a.75.75 0 01-.75.75H8.25a.75.75 0 01-.75-.75V19.04a.75.75 0 01.031-.89l1.636-3.896c.074-.175.246-.322.445-.393L12 13.793V9.561l-2.703 6.44c-.093.22-.303.376-.554.428L8.25 16.25a.75.75 0 01-.75-.75v-1.06a.75.75 0 00-.72-.741l-.865.182A4.49 4.49 0 013.75 12c0-1.018.306-1.97.849-2.797a.75.75 0 01.031-.89L6.22 4.417c.074-.175.246-.322.445-.393L12 2.25z" clipRule="evenodd" />
+                           </svg>
+                            Verified Landlord
+                        </p>
+                    )}
+                </div>
+            </CardBody>
+        </Card>
+        <Spacer y={8} /> {/* Added a spacer after Landlord info */}
 
         {/* Related Rooms Section */}
         <div>
