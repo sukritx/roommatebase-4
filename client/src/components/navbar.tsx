@@ -156,19 +156,13 @@ export const Navbar = () => {
                     }
                   }}
                 >
-                  <DropdownItem key="user-info" className="h-14 gap-2 text-default-500" textValue={`Signed in as ${user?.email}`}>
+                  <DropdownItem key="account" className="h-14 gap-2 text-default-500" textValue={`Signed in as ${user?.email}`}>
                     <p className="font-semibold">Signed in as</p>
                     <p className="font-semibold">{user?.email}</p>
                   </DropdownItem>
 
-                  <DropdownItem key="dashboard">
-                    Dashboard
-                  </DropdownItem>
-                  <DropdownItem key="profile">
-                    Profile
-                  </DropdownItem>
-                  <DropdownItem key="wishlists">
-                    Wishlists
+                  <DropdownItem key="account">
+                    Account
                   </DropdownItem>
 
                   {user?.isRoomOwner && (
@@ -244,35 +238,11 @@ export const Navbar = () => {
                     className="w-full"
                     color="foreground"
                     as={RouterLink} // <--- Use as={RouterLink}
-                    to="/profile"   // <--- Use 'to' prop
+                    to="/account"   // <--- Use 'to' prop
                     size="lg"
                     onClick={closeMobileMenu} // <--- Close menu directly
                   >
-                    Profile
-                  </Link>
-                </NavbarMenuItem>
-                <NavbarMenuItem key="mobile-dashboard">
-                  <Link
-                    className="w-full"
-                    color="foreground"
-                    as={RouterLink} // <--- Use as={RouterLink}
-                    to="/dashboard"  // <--- Use 'to' prop
-                    size="lg"
-                    onClick={closeMobileMenu} // <--- Close menu directly
-                  >
-                    Dashboard
-                  </Link>
-                </NavbarMenuItem>
-                <NavbarMenuItem key="mobile-wishlists">
-                  <Link
-                    className="w-full"
-                    color="foreground"
-                    as={RouterLink} // <--- Use as={RouterLink}
-                    to="/wishlists" // <--- Use 'to' prop
-                    size="lg"
-                    onClick={closeMobileMenu} // <--- Close menu directly
-                  >
-                    Wishlists
+                    Account
                   </Link>
                 </NavbarMenuItem>
 

@@ -1,6 +1,7 @@
 const User = require('../models/User.model');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { ErrorHandler } = require('../middleware/errorHandler');
 
 exports.registerUser = async (req, res, next) => {
   try {
@@ -56,31 +57,82 @@ exports.loginWithGoogleCallback = (req, res) => {
 
 exports.updateProfile = async (req, res, next) => {
   try {
-    const userId = req.user._id;
-    const updates = req.body; // e.g., { firstName: 'New Name', bio: '...' }
+    const userId = req.user._id; // Get user ID from authenticated token
+    const {
+      username, // New username from request
+      firstName,
+      lastName,
+      age,
+      gender,
+      location,
+      bio,
+      budget,
+      preferredRoommateGender,
+      interests,
+      isSmoker,
+      hasPet,
+      occupation,
+      profilePicture,
+    } = req.body;
 
-    // Optional: Filter allowed updates for security
-    const allowedUpdates = [
-      'username', 'firstName', 'lastName', 'age', 'gender', 'location',
-      'bio', 'budget', 'preferredRoommateGender', 'interests', 'isSmoker',
-      'hasPet', 'occupation', 'profilePicture'
-    ];
-    const filteredUpdates = Object.keys(updates)
-      .filter(key => allowedUpdates.includes(key))
-      .reduce((obj, key) => {
-        obj[key] = updates[key];
-        return obj;
-      }, {});
+    const updateFields = {};
 
-    const user = await User.findByIdAndUpdate(userId, filteredUpdates, { new: true, runValidators: true }).select('-password');
+    // --- Username Uniqueness Check ---
+    if (username !== undefined) {
+      // If the username is being changed, check if it's taken by another user
+      const existingUserWithUsername = await User.findOne({ username: username });
 
-    if (!user) {
+      if (existingUserWithUsername && existingUserWithUsername._id.toString() !== userId.toString()) {
+        // If an existing user is found AND their ID is NOT the current user's ID
+        // Use the imported ErrorHandler to create a custom error
+        return next(new ErrorHandler(409, 'Username is already taken. Please choose a different one.')); // 409 Conflict
+      }
+      updateFields.username = username; // Only set if unique or unchanged
+    }
+    // --- End Username Uniqueness Check ---
+
+    if (firstName !== undefined) updateFields.firstName = firstName;
+    if (lastName !== undefined) updateFields.lastName = lastName;
+    if (age !== undefined) updateFields.age = age === null ? null : Number(age);
+    if (location !== undefined) updateFields.location = location;
+    if (bio !== undefined) updateFields.bio = bio;
+    if (budget !== undefined) updateFields.budget = budget === null ? null : Number(budget);
+    if (interests !== undefined) updateFields.interests = interests;
+    if (isSmoker !== undefined) updateFields.isSmoker = isSmoker;
+    if (hasPet !== undefined) updateFields.hasPet = hasPet;
+    if (occupation !== undefined) updateFields.occupation = occupation;
+    if (profilePicture !== undefined) updateFields.profilePicture = profilePicture;
+
+    // --- Specific handling for enum fields (gender, preferredRoommateGender) ---
+    if (gender !== undefined && gender !== '') {
+      updateFields.gender = gender;
+    }
+
+    if (preferredRoommateGender !== undefined && preferredRoommateGender !== '') {
+      updateFields.preferredRoommateGender = preferredRoommateGender;
+    }
+    // --- End enum handling ---
+
+    const updatedUser = await User.findByIdAndUpdate(userId, { $set: updateFields }, { new: true, runValidators: true })
+      .select('-password'); // Exclude password from the response
+
+    if (!updatedUser) {
       return next(new ErrorHandler(404, 'User not found'));
     }
 
-    res.json({ success: true, message: 'Profile updated successfully', user });
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: updatedUser,
+    });
   } catch (err) {
-    next(err);
+    // Handle Mongoose validation errors (e.g., if a field becomes required or an enum fails)
+    if (err.name === 'ValidationError') {
+      const messages = Object.values(err.errors).map(val => val.message);
+      return next(new ErrorHandler(400, messages.join(', ')));
+    }
+    console.error("Error in updateProfile:", err);
+    next(err); // Pass other errors to the generic error handler
   }
 };
 

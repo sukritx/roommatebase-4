@@ -17,7 +17,7 @@ const messageRoutes = require('./routes/privateMessageRouter');
 const paymentRoutes = require('./routes/paymentRouter');
 const roomChatRoutes = require('./routes/roomChatRouter');
 
-const errorHandler = require('./middleware/errorHandler');
+const { errorHandler, ErrorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 const server = http.createServer(app); // Create HTTP server from Express app
