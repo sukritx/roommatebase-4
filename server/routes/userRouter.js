@@ -14,7 +14,6 @@ router.use(auth.verifyToken);
 
 router.put('/profile', updateProfile);
 router.put('/preferences', updatePreferences);
-router.put('/social-media', updateContact);
 router.delete('/account', deleteAccount);
 router.get('/dashboard-stats', getDashboardStats); // Example
 

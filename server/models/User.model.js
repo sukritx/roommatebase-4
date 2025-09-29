@@ -12,7 +12,7 @@ const UserSchema = new mongoose.Schema({
   lastName: { type: String },
   profilePicture: { type: String, default: "" },
   age: { type: Number },
-  gender: { type: String, enum: ["Male", "Female", "Other"] },
+  gender: { type: String },
   location: { type: String },
   bio: { type: String },
   budget: { type: Number },

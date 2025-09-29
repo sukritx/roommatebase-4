@@ -57,9 +57,9 @@ exports.loginWithGoogleCallback = (req, res) => {
 
 exports.updateProfile = async (req, res, next) => {
   try {
-    const userId = req.user._id; // Get user ID from authenticated token
+    const userId = req.user._id;
     const {
-      username, // New username from request
+      username,
       firstName,
       lastName,
       age,
@@ -73,66 +73,85 @@ exports.updateProfile = async (req, res, next) => {
       hasPet,
       occupation,
       profilePicture,
+      // Contact fields directly from the request body
+      facebook,
+      instagram,
+      twitter,
+      whatsapp,
+      phoneNumber,
     } = req.body;
 
-    const updateFields = {};
+    // Fetch the user document to safely update nested arrays/objects
+    const userToUpdate = await User.findById(userId);
+    if (!userToUpdate) {
+        return next(new ErrorHandler(404, 'User not found'));
+    }
 
-    // --- Username Uniqueness Check ---
+    // --- Update scalar and simple array fields ---
+    // Handle username with uniqueness check
     if (username !== undefined) {
-      // If the username is being changed, check if it's taken by another user
       const existingUserWithUsername = await User.findOne({ username: username });
-
       if (existingUserWithUsername && existingUserWithUsername._id.toString() !== userId.toString()) {
-        // If an existing user is found AND their ID is NOT the current user's ID
-        // Use the imported ErrorHandler to create a custom error
-        return next(new ErrorHandler(409, 'Username is already taken. Please choose a different one.')); // 409 Conflict
+        return next(new ErrorHandler(409, 'Username is already taken. Please choose a different one.'));
       }
-      updateFields.username = username; // Only set if unique or unchanged
+      userToUpdate.username = username;
     }
-    // --- End Username Uniqueness Check ---
+    
+    // Update other direct fields
+    if (firstName !== undefined) userToUpdate.firstName = firstName;
+    if (lastName !== undefined) userToUpdate.lastName = lastName;
+    // For number fields, allow null to clear them
+    if (age !== undefined) userToUpdate.age = age === null ? null : Number(age);
+    // For enum fields, only update if a non-empty string is provided
+    if (gender !== undefined && gender !== '') userToUpdate.gender = gender;
+    if (location !== undefined) userToUpdate.location = location;
+    if (bio !== undefined) userToUpdate.bio = bio;
+    if (budget !== undefined) userToUpdate.budget = budget === null ? null : Number(budget);
+    if (preferredRoommateGender !== undefined && preferredRoommateGender !== '') userToUpdate.preferredRoommateGender = preferredRoommateGender;
+    if (interests !== undefined) userToUpdate.interests = interests;
+    // Boolean fields can be directly updated if defined
+    if (isSmoker !== undefined) userToUpdate.isSmoker = isSmoker;
+    if (hasPet !== undefined) userToUpdate.hasPet = hasPet;
+    if (occupation !== undefined) userToUpdate.occupation = occupation;
+    if (profilePicture !== undefined) userToUpdate.profilePicture = profilePicture;
 
-    if (firstName !== undefined) updateFields.firstName = firstName;
-    if (lastName !== undefined) updateFields.lastName = lastName;
-    if (age !== undefined) updateFields.age = age === null ? null : Number(age);
-    if (location !== undefined) updateFields.location = location;
-    if (bio !== undefined) updateFields.bio = bio;
-    if (budget !== undefined) updateFields.budget = budget === null ? null : Number(budget);
-    if (interests !== undefined) updateFields.interests = interests;
-    if (isSmoker !== undefined) updateFields.isSmoker = isSmoker;
-    if (hasPet !== undefined) updateFields.hasPet = hasPet;
-    if (occupation !== undefined) updateFields.occupation = occupation;
-    if (profilePicture !== undefined) updateFields.profilePicture = profilePicture;
 
-    // --- Specific handling for enum fields (gender, preferredRoommateGender) ---
-    if (gender !== undefined && gender !== '') {
-      updateFields.gender = gender;
+    // --- Handle Contact Information (nested array of objects) ---
+    // Ensure the contact array exists and has at least one element for simplicity.
+    // If you intend for multiple contact sets, this logic needs to be extended.
+    if (!userToUpdate.contact || userToUpdate.contact.length === 0) {
+        userToUpdate.contact = [{}]; // Initialize with an empty object if missing or empty
     }
+    const firstContact = userToUpdate.contact[0]; // Reference the first (and assumed only) contact object
 
-    if (preferredRoommateGender !== undefined && preferredRoommateGender !== '') {
-      updateFields.preferredRoommateGender = preferredRoommateGender;
-    }
-    // --- End enum handling ---
+    // Update each contact field if it's explicitly provided in the request body
+    if (facebook !== undefined) firstContact.facebook = facebook;
+    if (instagram !== undefined) firstContact.instagram = instagram;
+    if (twitter !== undefined) firstContact.twitter = twitter;
+    if (whatsapp !== undefined) firstContact.whatsapp = whatsapp;
+    if (phoneNumber !== undefined) firstContact.phoneNumber = phoneNumber;
 
-    const updatedUser = await User.findByIdAndUpdate(userId, { $set: updateFields }, { new: true, runValidators: true })
-      .select('-password'); // Exclude password from the response
+    // Crucial: Mark the contact array as modified for Mongoose to detect changes
+    userToUpdate.markModified('contact');
+    // --- End Contact Information handling ---
 
-    if (!updatedUser) {
-      return next(new ErrorHandler(404, 'User not found'));
-    }
+    // Save the fully modified document
+    const updatedUser = await userToUpdate.save();
 
+    // Respond with the updated user data (excluding sensitive info like password)
     res.json({
       success: true,
       message: 'Profile updated successfully',
-      user: updatedUser,
+      user: updatedUser.toObject({ virtuals: true, getters: true }), // Convert to plain object, include virtuals
     });
+
   } catch (err) {
-    // Handle Mongoose validation errors (e.g., if a field becomes required or an enum fails)
     if (err.name === 'ValidationError') {
       const messages = Object.values(err.errors).map(val => val.message);
       return next(new ErrorHandler(400, messages.join(', ')));
     }
     console.error("Error in updateProfile:", err);
-    next(err); // Pass other errors to the generic error handler
+    next(err); // Pass any other errors to the central error handler
   }
 };
 
@@ -154,33 +173,6 @@ exports.updatePreferences = async (req, res, next) => {
     }
 
     res.json({ success: true, message: 'Preferences updated successfully', user });
-  } catch (err) {
-    next(err);
-  }
-};
-
-exports.updateContact = async (req, res, next) => { // This function likely needs to be renamed or re-purposed
-  try {
-    const userId = req.user._id;
-    const { facebook, instagram, twitter, whatsapp, phoneNumber } = req.body;
-
-    const contactInfo = { // Renamed from socialMedia to contactInfo to match model
-      facebook: facebook || '',
-      instagram: instagram || '',
-      twitter: twitter || '',
-      whatsapp: whatsapp || '',
-      phoneNumber: phoneNumber || ''
-    };
-
-    const user = await User.findByIdAndUpdate(userId, {
-      contact: [contactInfo] // CHANGED: from socialMedia to contact
-    }, { new: true, runValidators: true }).select('-password');
-
-    if (!user) {
-      return next(new ErrorHandler(404, 'User not found'));
-    }
-
-    res.json({ success: true, message: 'Contact information updated successfully', contact: user.contact[0] }); // CHANGED
   } catch (err) {
     next(err);
   }
