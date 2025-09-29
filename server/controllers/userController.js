@@ -1,6 +1,7 @@
 const User = require('../models/User.model');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const s3Service = require('../services/s3Service');
 const { ErrorHandler } = require('../middleware/errorHandler');
 
 exports.registerUser = async (req, res, next) => {
@@ -227,5 +228,33 @@ exports.getDashboardStats = async (req, res, next) => {
     res.json({ success: true, data: stats });
   } catch (err) {
     next(err);
+  }
+};
+
+exports.getProfilePictureUploadUrl = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { fileType } = req.body; // e.g., 'image/jpeg', 'image/png'
+
+    if (!fileType) {
+      return next(new ErrorHandler(400, 'File type is required.'));
+    }
+
+    // Generate the presigned URL using the S3 service
+    const { url, fields, fileUrl, objectKey } = await s3Service.generatePresignedPost(fileType, userId);
+
+    res.json({
+      success: true,
+      data: {
+        uploadUrl: url,      // The URL to POST the file to
+        uploadFields: fields, // Form fields to include in the POST request
+        publicUrl: `https://<YOUR_PUBLIC_R2_DOMAIN_OR_BUCKET_ENDPOINT>/${objectKey}`, // The final public URL after upload
+        // Make sure to replace <YOUR_PUBLIC_R2_DOMAIN_OR_BUCKET_ENDPOINT> with your actual public R2 URL
+        // e.g., `https://pub-<ID>.r2.dev/${objectKey}` or your custom domain
+      },
+    });
+  } catch (error) {
+    console.error('Error in getProfilePictureUploadUrl:', error);
+    next(new ErrorHandler(500, 'Failed to generate upload URL.'));
   }
 };

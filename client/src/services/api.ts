@@ -29,7 +29,11 @@ export const userApi = {
     const response = await axiosInstance.put('/users/profile', profileData);
     return response.data;
   },
-  // Add other user-related API calls here (e.g., fetchProfile, changePassword)
+  // New API call for getting a presigned upload URL
+  getProfilePictureUploadUrl: async (fileType: string) => {
+    const response = await axiosInstance.post('/users/profile-picture-upload-url', { fileType });
+    return response.data.data; // Return the 'data' object from the response
+  },
 };
 
 export const roomApi = {

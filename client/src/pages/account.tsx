@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // Import useRef
 import { title, subtitle } from '@/components/primitives';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link } from '@heroui/link';
@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardBody,
   CardFooter,
-} from '@heroui/card'; // Make sure Divider is exported from your @heroui/card or similar
+} from '@heroui/card';
 import { Button } from '@heroui/button';
 import { Input } from '@heroui/input';
 import { Textarea } from '@heroui/input';
@@ -15,15 +15,14 @@ import {
   Select,
   SelectItem
 } from '@heroui/select';
-import { Switch } from '@heroui/switch';
 import { Divider } from '@heroui/divider';
+import { Switch } from '@heroui/switch';
 import { userApi } from '@/services/api';
-import { Avatar } from '@heroui/avatar';
+import { Avatar } from '@heroui/avatar'; // For profile picture
 
 export default function AccountPage() {
   const { user, loading, isAuthenticated, checkAuthStatus } = useAuth();
   
-  // State for personal profile fields
   const [username, setUsername] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -37,9 +36,8 @@ export default function AccountPage() {
   const [isSmoker, setIsSmoker] = useState(false);
   const [hasPet, setHasPet] = useState(false);
   const [occupation, setOccupation] = useState('');
-  const [profilePicture, setProfilePicture] = useState('');
+  const [profilePicture, setProfilePicture] = useState(''); // This will now hold the final URL
 
-  // States for Contact Information
   const [facebook, setFacebook] = useState('');
   const [instagram, setInstagram] = useState('');
   const [twitter, setTwitter] = useState('');
@@ -49,7 +47,13 @@ export default function AccountPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Effect to populate form fields when user data loads or changes
+  // --- NEW: File upload states and refs ---
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null); // Ref for the hidden file input
+  const [imagePreview, setImagePreview] = useState<string | null>(null); // For local preview
+  // --- END NEW ---
+
   useEffect(() => {
     if (isAuthenticated && user) {
       setUsername(user.username || '');
@@ -66,8 +70,8 @@ export default function AccountPage() {
       setHasPet(user.hasPet || false);
       setOccupation(user.occupation || '');
       setProfilePicture(user.profilePicture || '');
+      setImagePreview(user.profilePicture || null); // Initialize preview with current URL
 
-      // Populate Contact Information states from user.contact (first element assumed)
       const userContact = user.contact && user.contact.length > 0 ? user.contact[0] : {};
       setFacebook(userContact.facebook || '');
       setInstagram(userContact.instagram || '');
@@ -77,12 +81,10 @@ export default function AccountPage() {
     }
   }, [isAuthenticated, user]);
 
-  // Render loading state
   if (loading) {
     return <div className="text-center py-10">Loading account details...</div>;
   }
 
-  // Render access denied if not authenticated
   if (!isAuthenticated) {
     return (
       <div className="text-center py-10">
@@ -94,13 +96,79 @@ export default function AccountPage() {
     );
   }
 
-  // Handle profile update form submission
+  // --- NEW: Handle file selection ---
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      // Create a local URL for image preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      setMessage(null); // Clear previous messages
+    } else {
+      setSelectedFile(null);
+      // setImagePreview(user?.profilePicture || null); // Revert to current user's pic if no file chosen
+    }
+  };
+
+  // --- NEW: Handle image upload to S3/R2 ---
+  const handleImageUpload = async () => {
+    if (!selectedFile) {
+      setMessage({ type: 'error', text: 'Please select an image to upload.' });
+      return;
+    }
+
+    setUploadingImage(true);
+    setMessage(null);
+
+    try {
+      // 1. Get a presigned URL from your backend
+      const uploadData = await userApi.getProfilePictureUploadUrl(selectedFile.type);
+
+      if (!uploadData || !uploadData.uploadUrl || !uploadData.uploadFields || !uploadData.publicUrl) {
+        throw new Error('Failed to get complete upload URL data from backend.');
+      }
+      
+      const { uploadUrl, uploadFields, publicUrl } = uploadData;
+
+      // 2. Prepare FormData for direct S3/R2 POST upload
+      const formData = new FormData();
+      Object.entries(uploadFields).forEach(([key, value]) => {
+        formData.append(key, value as string);
+      });
+      formData.append('file', selectedFile); // The file itself must be the last field
+
+      // 3. Upload the file directly to S3/R2
+      await axios.post(uploadUrl, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // 4. Update the profilePicture state with the new public URL
+      setProfilePicture(publicUrl);
+      setMessage({ type: 'success', text: 'Image uploaded successfully! Remember to save your profile.' });
+      setSelectedFile(null); // Clear selected file after successful upload
+
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Failed to upload image.';
+      setMessage({ type: 'error', text: errorMessage });
+      console.error('Image upload error:', error);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+  // --- END NEW ---
+
+
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setMessage(null);
 
-    // Construct the data payload with all profile and contact fields
     const updateData: Record<string, any> = {
       username,
       firstName,
@@ -113,8 +181,7 @@ export default function AccountPage() {
       isSmoker,
       hasPet,
       occupation,
-      profilePicture,
-      // Include contact fields in the main update payload
+      profilePicture, // Use the updated profilePicture URL (or existing)
       facebook,
       instagram,
       twitter,
@@ -122,7 +189,6 @@ export default function AccountPage() {
       phoneNumber,
     };
 
-    // Conditionally add enum fields only if they have a non-empty value
     if (gender && gender !== '') {
       updateData.gender = gender;
     }
@@ -133,7 +199,7 @@ export default function AccountPage() {
     try {
       const response = await userApi.updateProfile(updateData);
       setMessage({ type: 'success', text: response.message || 'Profile updated successfully!' });
-      await checkAuthStatus(); // Refresh user data in context to show latest info
+      await checkAuthStatus();
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Failed to update profile.';
       setMessage({ type: 'error', text: errorMessage });
@@ -143,19 +209,12 @@ export default function AccountPage() {
     }
   };
 
-  // Handle interests input changes
   const handleInterestsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInterests(e.target.value.split(',').map(s => s.trim()).filter(s => s !== ''));
   };
 
   return (
     <section className="flex flex-col items-center justify-center gap-4 py-8 md:py-10">
-      <h1 className={title({ size: 'lg' })}>
-        Account <span className={title({ size: 'lg', color: 'violet' })}>Settings</span>
-      </h1>
-      <p className={subtitle({ class: 'mt-2' })}>
-        Manage your personal information and preferences.
-      </p>
 
       {message && (
         <div
@@ -170,20 +229,46 @@ export default function AccountPage() {
       <Card className="w-full max-w-2xl mt-8 p-6">
         <CardBody>
           <form onSubmit={handleUpdateProfile} className="space-y-6">
-            {/* --- Profile Picture & Basic Info Section --- */}
+            {/* --- Profile Picture Upload Section --- */}
             <div className="flex flex-col items-center gap-4 mb-8">
               <Avatar
-                src={profilePicture || user?.profilePicture || "https://i.pravatar.cc/150?u=a042581f4e29026704d"}
+                src={imagePreview || "https://i.pravatar.cc/150?u=a042581f4e29026704d"} // Use imagePreview for current or selected
                 className="w-24 h-24 text-large"
                 name={user?.firstName || user?.username || 'User'}
               />
-              <Input
-                label="Profile Picture URL"
-                placeholder="Enter image URL"
-                value={profilePicture}
-                onValueChange={setProfilePicture}
+              
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }} // Hide the actual file input
+                accept="image/*" // Only accept image files
+                onChange={handleFileChange}
               />
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => fileInputRef.current?.click()} // Trigger click on hidden input
+                  color="secondary"
+                  variant="flat"
+                >
+                  {selectedFile ? 'Change Image' : 'Select Image'}
+                </Button>
+                {selectedFile && (
+                  <Button
+                    onClick={handleImageUpload}
+                    color="primary"
+                    isLoading={uploadingImage}
+                    isDisabled={uploadingImage}
+                  >
+                    {uploadingImage ? 'Uploading...' : 'Upload Selected Image'}
+                  </Button>
+                )}
+              </div>
+              {selectedFile && <p className="text-sm text-default-500">Selected: {selectedFile.name}</p>}
             </div>
+
+            {/* --- Personal Information Section --- */}
+            <Divider className="my-8" />
+            <h2 className={subtitle({ class: "text-lg font-semibold mb-4" })}>Personal Information</h2>
 
             <Input
               label="Username"
@@ -315,10 +400,9 @@ export default function AccountPage() {
               value={whatsapp}
               onValueChange={setWhatsapp}
             />
-            {/* --- End Contact Information Section --- */}
 
             <CardFooter className="flex justify-end gap-2 pt-4">
-              <Button type="submit" color="primary" isLoading={isLoading}>
+              <Button type="submit" color="primary" isLoading={isLoading} isDisabled={uploadingImage}>
                 Update Profile
               </Button>
             </CardFooter>
